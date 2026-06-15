@@ -5,14 +5,12 @@ import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
-@ConditionalOnProperty(value = "worker.enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 public class ArticleWorker {
 

@@ -9,5 +9,3 @@ spring:
   ai:
     openai:
       api-key: test-dummy
-worker:
-  enabled: false
