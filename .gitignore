@@ -37,6 +37,7 @@ temp/
 node_modules/
 dist/
 build/
+.gradle/
 .cache/
 __pycache__/
 *.py[cod]

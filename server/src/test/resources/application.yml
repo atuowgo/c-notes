@@ -9,3 +9,7 @@ spring:
   ai:
     openai:
       api-key: test-dummy
+
+worker:
+  scheduling:
+    enabled: false   # 测试环境关闭定时轮询,防止后台 Worker 污染全表断言
