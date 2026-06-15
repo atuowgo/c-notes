@@ -71,7 +71,7 @@ repositories { mavenCentral() }
 
 ext {
     set('springAiVersion', '2.0.0')
-    set('mybatisPlusVersion', '3.5.12')   // 需含 spring-boot4-starter,执行时对齐最新
+    set('mybatisPlusVersion', '3.5.16')   // 含 spring-boot4-starter,Maven Central 已核实存在
 }
 
 dependencies {
