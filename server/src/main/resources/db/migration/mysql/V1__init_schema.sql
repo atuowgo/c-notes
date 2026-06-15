@@ -8,7 +8,7 @@ CREATE TABLE article (
     source_type     VARCHAR(32)   NOT NULL DEFAULT 'browser',
     content         LONGTEXT               DEFAULT NULL COMMENT '正文Markdown',
     summary         TEXT                   DEFAULT NULL,
-    key_points      JSON                   DEFAULT NULL,
+    key_points      TEXT                   DEFAULT NULL COMMENT 'JSON数组字符串,应用层(反)序列化',
     status          VARCHAR(16)   NOT NULL DEFAULT 'pending' COMMENT 'pending/processing/done/failed',
     extract_method  VARCHAR(32)            DEFAULT NULL,
     retry_count     INT           NOT NULL DEFAULT 0,

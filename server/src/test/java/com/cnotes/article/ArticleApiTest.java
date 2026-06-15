@@ -43,4 +43,26 @@ class ArticleApiTest {
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.title", is("收件箱标题")));
     }
+
+    /**
+     * 回归:key_points 以 JSON 数组字符串入库,detail 必须能反序列化成数组。
+     * 历史上 key_points 列为 JSON 类型时,H2 会把整段数组当成 JSON 字符串标量
+     * 二次编码,读回后解析失败静默退化为空数组 —— 此用例守住该回归。
+     */
+    @Test
+    void detailDeserializesKeyPoints() throws Exception {
+        String h = java.util.UUID.randomUUID().toString().replace("-", "");
+        Article a = new Article();
+        a.setUrl("https://e.com/kp/" + h); a.setUrlHash(h);
+        a.setTitle("要点文章"); a.setStatus("done"); a.setSourceType("wechat");
+        a.setKeyPoints("[\"要点A\",\"要点B\",\"要点C\"]");
+        articleMapper.insert(a);
+
+        mvc.perform(get("/api/articles/" + a.getId()))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.sourceType", is("wechat")))
+           .andExpect(jsonPath("$.keyPoints", hasSize(3)))
+           .andExpect(jsonPath("$.keyPoints[0]", is("要点A")))
+           .andExpect(jsonPath("$.keyPoints[2]", is("要点C")));
+    }
 }

@@ -1,0 +1,23 @@
+# 本地开发/演示 profile:H2 内存库(MODE=MySQL),与生产 MySQL 隔离。
+# 上线切回默认 profile(application.yml 的 MySQL)。详见三点约定:H2 仅 test/dev。
+spring:
+  datasource:
+    url: jdbc:h2:mem:cnotes-dev;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ''
+    driver-class-name: org.h2.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration/{vendor}
+    baseline-on-migrate: true
+  h2:
+    console:
+      enabled: true
+  ai:
+    openai:
+      api-key: dev-dummy-key
+
+worker:
+  # 演示环境关闭后台轮询:种子数据的 pending/failed 状态保持稳定,便于前端验证三种卡片渲染
+  scheduling:
+    enabled: false

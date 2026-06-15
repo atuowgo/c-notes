@@ -8,7 +8,7 @@ CREATE TABLE article (
     source_type     VARCHAR(32)   NOT NULL DEFAULT 'browser',
     content         LONGTEXT               DEFAULT NULL,
     summary         TEXT                   DEFAULT NULL,
-    key_points      JSON                   DEFAULT NULL,
+    key_points      TEXT                   DEFAULT NULL,
     status          VARCHAR(16)   NOT NULL DEFAULT 'pending',
     extract_method  VARCHAR(32)            DEFAULT NULL,
     retry_count     INT           NOT NULL DEFAULT 0,

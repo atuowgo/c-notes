@@ -29,6 +29,7 @@ public class ArticleQueryService {
         ArticleDetailDto d = new ArticleDetailDto();
         d.setId(a.getId()); d.setTitle(a.getTitle()); d.setAuthor(a.getAuthor());
         d.setSummary(a.getSummary()); d.setContent(a.getContent()); d.setStatus(a.getStatus());
+        d.setSourceType(a.getSourceType());
         d.setKeyPoints(parsePoints(a.getKeyPoints()));
         return d;
     }
