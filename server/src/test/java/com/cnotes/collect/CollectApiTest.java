@@ -30,6 +30,15 @@ class CollectApiTest {
     }
 
     @Test
+    void blankUrlReturnsClean400() throws Exception {
+        mvc.perform(post("/api/collect").contentType("application/json")
+                .content(om.writeValueAsString(java.util.Map.of("url", "", "title", "t"))))
+           .andExpect(status().isBadRequest())
+           .andExpect(jsonPath("$.error", is("validation_failed")))
+           .andExpect(jsonPath("$.message", notNullValue()));
+    }
+
+    @Test
     void collectIsIdempotentByUrl() throws Exception {
         String r1 = mvc.perform(post("/api/collect").contentType("application/json").content(body("https://e.com/b")))
                        .andReturn().getResponse().getContentAsString();
