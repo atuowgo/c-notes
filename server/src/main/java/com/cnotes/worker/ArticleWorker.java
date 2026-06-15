@@ -43,7 +43,28 @@ public class ArticleWorker {
     }
 
     void runOne(Article a) {
-        a.setStatus("processing");
-        processor.process(a);   // Task 7 在此外层加 try/catch 退避
+        try {
+            a.setStatus("processing");
+            processor.process(a);
+        } catch (Exception e) {
+            int next = (a.getRetryCount() == null ? 0 : a.getRetryCount()) + 1;
+            Throwable root = e;
+            while (root.getCause() != null && root.getCause() != root) {
+                root = root.getCause();
+            }
+            String msg = String.valueOf(root.getMessage());
+            Article upd = new Article();
+            upd.setId(a.getId());
+            upd.setRetryCount(next);
+            upd.setStatus("failed");
+            upd.setLastError(msg.substring(0, Math.min(1000, msg.length())));
+            if (next < maxRetry) {
+                long delay = (long) (backoffBase * Math.pow(2, next - 1)); // 指数退避
+                upd.setNextRetryTime(LocalDateTime.now().plusSeconds(delay));
+            } else {
+                upd.setNextRetryTime(null);   // 达上限,不再重试
+            }
+            articleMapper.updateById(upd);
+        }
     }
 }
