@@ -2,6 +2,7 @@ package com.cnotes.article.dto;
 
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class ArticleCardDto {
@@ -12,4 +13,5 @@ public class ArticleCardDto {
     private String summary;
     private String status;
     private LocalDateTime createTime;
+    private List<String> tags;
 }
