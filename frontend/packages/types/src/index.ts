@@ -70,3 +70,24 @@ export interface CreateNoteRequest {
 export interface UpdateNoteRequest {
   thought?: string;
 }
+
+/** 知识网:主题簇(由标签长成) */
+export interface ClusterCard {
+  id: string;
+  name: string;
+  description?: string;
+  articleCount: number;
+  hasSummary: boolean;
+  summaryUpdatedAt?: string;
+}
+
+export interface ClusterDetail {
+  id: string;
+  name: string;
+  description?: string;
+  /** 演进式综述(AI 维护) */
+  livingSummary?: string;
+  summaryUpdatedAt?: string;
+  articleCount: number;
+  articles: ArticleCard[];
+}

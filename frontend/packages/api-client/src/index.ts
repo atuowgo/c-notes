@@ -1,6 +1,8 @@
 import type {
   ArticleCard,
   ArticleDetail,
+  ClusterCard,
+  ClusterDetail,
   CollectRequest,
   CollectResponse,
   CreateNoteRequest,
@@ -27,6 +29,10 @@ export interface CnotesClient {
   createNote(req: CreateNoteRequest): Promise<Note>;
   updateNote(id: string, req: UpdateNoteRequest): Promise<Note>;
   deleteNote(id: string): Promise<void>;
+  /** 知识网:主题簇列表 / 详情 / 重写综述 */
+  listClusters(): Promise<ClusterCard[]>;
+  getCluster(id: string): Promise<ClusterDetail>;
+  regenerateCluster(id: string): Promise<ClusterDetail>;
 }
 
 /**
@@ -77,5 +83,12 @@ export function createClient(baseUrl = ''): CnotesClient {
 
     deleteNote: (id) =>
       request<void>(`/api/notes/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+    listClusters: () => request<ClusterCard[]>('/api/clusters'),
+
+    getCluster: (id) => request<ClusterDetail>(`/api/clusters/${encodeURIComponent(id)}`),
+
+    regenerateCluster: (id) =>
+      request<ClusterDetail>(`/api/clusters/${encodeURIComponent(id)}/regenerate`, { method: 'POST' }),
   };
 }
