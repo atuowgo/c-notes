@@ -2,11 +2,16 @@ package com.cnotes.article;
 
 import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
+import com.cnotes.tag.entity.ArticleTag;
+import com.cnotes.tag.entity.Tag;
+import com.cnotes.tag.mapper.ArticleTagMapper;
+import com.cnotes.tag.mapper.TagMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -18,6 +23,8 @@ class ArticleApiTest {
 
     @Autowired MockMvc mvc;
     @Autowired ArticleMapper articleMapper;
+    @Autowired TagMapper tagMapper;
+    @Autowired ArticleTagMapper articleTagMapper;
 
     private String seed() {
         String h = java.util.UUID.randomUUID().toString().replace("-", "");
@@ -64,5 +71,36 @@ class ArticleApiTest {
            .andExpect(jsonPath("$.keyPoints", hasSize(3)))
            .andExpect(jsonPath("$.keyPoints[0]", is("要点A")))
            .andExpect(jsonPath("$.keyPoints[2]", is("要点C")));
+    }
+
+    /**
+     * 卡片与详情应带出已归类的标签名;详情还应带原文 url(用于"看原文")。
+     * 标 @Transactional:本用例向全局 article_tag 插入数据,事务回滚以免污染
+     * TagClassifierTest 的全表条数断言(共享 H2 内存库)。MockMvc 与测试同线程同事务,
+     * 故 GET 仍能读到未提交的插入。
+     */
+    @Test
+    @Transactional
+    void cardAndDetailExposeTagsAndUrl() throws Exception {
+        String h = java.util.UUID.randomUUID().toString().replace("-", "");
+        Article a = new Article();
+        a.setUrl("https://e.com/tagged/" + h); a.setUrlHash(h);
+        a.setTitle("带标签的文章"); a.setStatus("done");
+        articleMapper.insert(a);
+
+        Tag t = new Tag(); t.setName("LLM 推理优化-" + h.substring(0, 6));
+        tagMapper.insert(t);
+        ArticleTag link = new ArticleTag();
+        link.setArticleId(a.getId()); link.setTagId(t.getId());
+        articleTagMapper.insert(link);
+
+        mvc.perform(get("/api/articles/" + a.getId()))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.url", is("https://e.com/tagged/" + h)))
+           .andExpect(jsonPath("$.tags", hasItem(t.getName())));
+
+        mvc.perform(get("/api/articles"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$[?(@.id == '" + a.getId() + "')].tags[0]", hasItem(t.getName())));
     }
 }
