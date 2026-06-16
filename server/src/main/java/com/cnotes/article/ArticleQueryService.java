@@ -4,23 +4,37 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.cnotes.article.dto.*;
 import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
+import com.cnotes.tag.entity.ArticleTag;
+import com.cnotes.tag.entity.Tag;
+import com.cnotes.tag.mapper.ArticleTagMapper;
+import com.cnotes.tag.mapper.TagMapper;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class ArticleQueryService {
 
     private final ArticleMapper articleMapper;
+    private final ArticleTagMapper articleTagMapper;
+    private final TagMapper tagMapper;
     private final ObjectMapper om;
 
     public List<ArticleCardDto> listInbox() {
-        return articleMapper.selectList(Wrappers.<Article>lambdaQuery()
-                .orderByDesc(Article::getCreateTime))
-            .stream().map(this::toCard).toList();
+        List<Article> articles = articleMapper.selectList(Wrappers.<Article>lambdaQuery()
+                .orderByDesc(Article::getCreateTime));
+        Map<String, List<String>> tagsByArticle =
+            tagsByArticle(articles.stream().map(Article::getId).toList());
+        return articles.stream()
+            .map(a -> toCard(a, tagsByArticle.getOrDefault(a.getId(), List.of())))
+            .toList();
     }
 
     public ArticleDetailDto detail(String id) {
@@ -29,9 +43,27 @@ public class ArticleQueryService {
         ArticleDetailDto d = new ArticleDetailDto();
         d.setId(a.getId()); d.setTitle(a.getTitle()); d.setAuthor(a.getAuthor());
         d.setSummary(a.getSummary()); d.setContent(a.getContent()); d.setStatus(a.getStatus());
-        d.setSourceType(a.getSourceType());
+        d.setSourceType(a.getSourceType()); d.setUrl(a.getUrl());
         d.setKeyPoints(parsePoints(a.getKeyPoints()));
+        d.setTags(tagsByArticle(List.of(a.getId())).getOrDefault(a.getId(), List.of()));
         return d;
+    }
+
+    /** 批量查若干文章的标签名,按 article_id 聚合(读已有 article_tag/tag,不触碰归类写入)。 */
+    private Map<String, List<String>> tagsByArticle(List<String> articleIds) {
+        if (articleIds.isEmpty()) return Map.of();
+        List<ArticleTag> links = articleTagMapper.selectList(
+            Wrappers.<ArticleTag>lambdaQuery().in(ArticleTag::getArticleId, articleIds));
+        if (links.isEmpty()) return Map.of();
+        Set<String> tagIds = links.stream().map(ArticleTag::getTagId).collect(Collectors.toSet());
+        Map<String, String> nameById = tagMapper
+            .selectList(Wrappers.<Tag>lambdaQuery().in(Tag::getId, tagIds)).stream()
+            .collect(Collectors.toMap(Tag::getId, Tag::getName));
+        return links.stream()
+            .filter(l -> nameById.containsKey(l.getTagId()))
+            .collect(Collectors.groupingBy(
+                ArticleTag::getArticleId,
+                Collectors.mapping(l -> nameById.get(l.getTagId()), Collectors.toList())));
     }
 
     private List<String> parsePoints(String json) {
@@ -39,11 +71,12 @@ public class ArticleQueryService {
         catch (Exception e) { return List.of(); }
     }
 
-    private ArticleCardDto toCard(Article a) {
+    private ArticleCardDto toCard(Article a, List<String> tags) {
         ArticleCardDto c = new ArticleCardDto();
         c.setId(a.getId()); c.setTitle(a.getTitle()); c.setAuthor(a.getAuthor());
         c.setSourceType(a.getSourceType()); c.setSummary(a.getSummary());
         c.setStatus(a.getStatus()); c.setCreateTime(a.getCreateTime());
+        c.setTags(tags);
         return c;
     }
 }

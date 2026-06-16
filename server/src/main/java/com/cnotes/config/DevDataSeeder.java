@@ -3,6 +3,10 @@ package com.cnotes.config;
 import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
 import com.cnotes.common.Hashing;
+import com.cnotes.tag.entity.ArticleTag;
+import com.cnotes.tag.entity.Tag;
+import com.cnotes.tag.mapper.ArticleTagMapper;
+import com.cnotes.tag.mapper.TagMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
@@ -19,27 +23,51 @@ import org.springframework.stereotype.Component;
 public class DevDataSeeder implements CommandLineRunner {
 
     private final ArticleMapper articleMapper;
+    private final TagMapper tagMapper;
+    private final ArticleTagMapper articleTagMapper;
 
     @Override
     public void run(String... args) {
         if (articleMapper.selectCount(null) > 0) return;
 
-        articleMapper.insert(done(
+        Article attention = done(
             "https://mp.weixin.qq.com/s/demo-attention",
             "Attention Is All You Need:重读经典", "李沐", "wechat",
             "Transformer 用自注意力替代循环结构,让序列建模可以完全并行。本文从动机、架构到训练细节做一次彻底重读。",
             "[\"自注意力让任意两个位置直接交互,路径长度为常数\",\"多头注意力在不同子空间并行捕捉关系\",\"位置编码用正弦函数注入顺序信息\",\"完全并行使大规模预训练成为可能\"]",
-            "Transformer 提出用自注意力机制完全替代 RNN/CNN,既缩短了长程依赖的信息传播路径,又解锁了训练并行度,为后续大模型奠定了基础架构。"));
+            "Transformer 提出用自注意力机制完全替代 RNN/CNN,既缩短了长程依赖的信息传播路径,又解锁了训练并行度,为后续大模型奠定了基础架构。");
+        articleMapper.insert(attention);
+        tagArticle(attention.getId(), "LLM 推理优化", "深度学习");
 
-        articleMapper.insert(pending(
+        Article rust = pending(
             "https://www.example.com/blog/rust-ownership",
             "理解 Rust 所有权与借用", "Steve", "browser",
-            "所有权是 Rust 内存安全的核心:每个值有唯一所有者,离开作用域即释放;借用允许在不转移所有权的前提下临时访问。"));
+            "所有权是 Rust 内存安全的核心:每个值有唯一所有者,离开作用域即释放;借用允许在不转移所有权的前提下临时访问。");
+        articleMapper.insert(rust);
+        tagArticle(rust.getId(), "Rust", "系统编程");
 
         articleMapper.insert(failed(
             "https://paywall.example.com/deep-dive",
             "分布式共识:从 Paxos 到 Raft", null, "browser",
             "正文抓取失败:目标站点需要登录,Readability 仅取到导航与登录提示。"));
+    }
+
+    /** 受控标签集中没有就建,再把文章挂上去(dev 演示用)。 */
+    private void tagArticle(String articleId, String... tagNames) {
+        for (String name : tagNames) {
+            Tag tag = tagMapper.selectList(
+                com.baomidou.mybatisplus.core.toolkit.Wrappers.<Tag>lambdaQuery().eq(Tag::getName, name))
+                .stream().findFirst().orElse(null);
+            if (tag == null) {
+                tag = new Tag();
+                tag.setName(name);
+                tagMapper.insert(tag);
+            }
+            ArticleTag link = new ArticleTag();
+            link.setArticleId(articleId);
+            link.setTagId(tag.getId());
+            articleTagMapper.insert(link);
+        }
     }
 
     private Article base(String url, String title, String author, String source, String content) {

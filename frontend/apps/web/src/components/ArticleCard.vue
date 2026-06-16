@@ -40,5 +40,9 @@ function onClick() {
       {{ article.summary || '正文提取失败,稍后可重试。' }}
     </p>
     <p v-else class="c-summary">{{ article.summary || '(无摘要)' }}</p>
+
+    <div v-if="article.tags && article.tags.length" class="c-tags">
+      <span v-for="t in article.tags" :key="t" class="tag">{{ t }}</span>
+    </div>
   </div>
 </template>

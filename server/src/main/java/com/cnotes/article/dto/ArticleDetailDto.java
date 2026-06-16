@@ -7,6 +7,7 @@ import java.util.List;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class ArticleDetailDto extends ArticleCardDto {
+    private String url;
     private String content;
     private List<String> keyPoints;
 }

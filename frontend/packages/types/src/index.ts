@@ -14,10 +14,14 @@ export interface ArticleCard {
   summary?: string;
   status: ArticleStatus;
   createTime: string;
+  /** 已归类的标签名;后端读 article_tag 带出,可能为空数组 */
+  tags?: string[];
 }
 
 /** 文章详情(卡片 + 正文 + 要点) */
 export interface ArticleDetail extends ArticleCard {
+  /** 原文链接(用于"看原文") */
+  url?: string;
   content?: string;
   keyPoints: string[];
 }
