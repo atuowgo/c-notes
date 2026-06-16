@@ -15,7 +15,7 @@
 |---|---|---|---|
 | P0 | 环境核对 + 三份文档 | ✅ 文档完成 | (待提交) |
 | P1 | V3 迁移 + 实体/Mapper | ✅ 完成 | (见下 commit) |
-| P2 | Ark EmbeddingModel | ⬜ | |
+| P2 | Ark EmbeddingModel | ✅ 完成 | (见下 commit) |
 | P3 | SimpleVectorStore + ClusterIndexer | ⬜ | |
 | P4 | WebSearch @Tool（源3） | ⬜ | |
 | P5 | ChatContextAssembler（源1/2/3） | ⬜ | |
@@ -39,3 +39,10 @@
 - 新建 H2/MySQL `V3__chat.sql`（chat_session: id PK + article_id 可空 + idx_article；chat_message: id PK + session_id NOT NULL + role + content/sources TEXT + idx_session；MySQL ON UPDATE CURRENT_TIMESTAMP，H2 省略）。
 - 实体沿用 `Note.java` 风格（ASSIGN_UUID + create_time INSERT / update_time INSERT_UPDATE fill），Mapper 继承 BaseMapper（已被 `@MapperScan("com.cnotes.**.mapper")` 覆盖）。
 - 验证：`./gradlew test --tests '*ChatPersistenceTest*'` PASS；全量 `./gradlew test` BUILD SUCCESSFUL（17 个测试类全绿，含 SchemaMigrationTest 不受影响）。
+
+### 2026-06-17 — P2 ArkEmbeddingModel（火山引擎多模态向量）
+- **续作背景**：原 workflow 在 P2 因「agent 180s 无进度看门狗」连续 6 次判死被杀（实为首次冷启动 gradle 下依赖/冷 daemon 耗时 >180s，非代码问题）。改在主循环直跑——gradle 不受看门狗约束。保留 workflow 失败 agent 留下的 P2 半成品并补全 yml 接线后验证。
+- **实现**：`ArkEmbeddingModel implements org.springframework.ai.embedding.EmbeddingModel`（`@Component @Primary`），POST `{base-url}/embeddings/multimodal`，请求 `input:[{"type":"text","text":..}]`，解析响应 `data.embedding` 单对象 → 2048 维 `float[]`；用 Jackson 3 `tools.jackson.*`。配置类 `ArkEmbeddingProperties(@ConfigurationProperties("ark.embedding"))`，已在 `CNotesApplication` 用 `@EnableConfigurationProperties` 注册。
+- **接线**：`application.yml` 加 `spring.ai.model.embedding: none`（关 openai embedding 自动配置，DeepSeek 不提供 embedding）+ 顶层 `ark.embedding.{base-url,api-key,model,dim}`（密钥仅来自 env）。dev profile 继承之。
+- **测试**：`ArkEmbeddingModelTest` —— 离线用 Spring `MockRestServiceServer` 绑 `RestClient.Builder`，断言命中 `/embeddings/multimodal`、请求体 type=text、解析 `data.embedding` 单对象为 2048 维；`call()` 多输入各回一条；**`@EnabledIfEnvironmentVariable(ARK_API_KEY)` 的 `realArkReturns2048Dim()` 真打火山引擎活端点**。
+- **验证证据**：带 `server/.env` 跑 `./gradlew test --tests '*ArkEmbeddingModelTest'` → 3 用例 0 跳过 0 失败，`realArkReturns2048Dim()` 耗时 1.704s（真实网络往返 200 + 2048 维）；全量 `./gradlew test` BUILD SUCCESSFUL（18 个测试类 / 46 用例 / 0 失败 0 错误 / 2 env 门控跳过），证明 `@Primary` 组件未破坏任何上下文加载。

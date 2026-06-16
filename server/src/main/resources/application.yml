@@ -8,6 +8,10 @@ spring:
     username: root
     password: root
   ai:
+    # 关掉 openai 的 embedding 自动配置:DeepSeek 不提供 embedding,向量统一走火山引擎 Ark
+    # 的 ArkEmbeddingModel(@Primary)。仅保留 openai 的 chat 自动配置给 DeepSeek 对话用。
+    model:
+      embedding: none
     openai:
       # DeepSeek 走 OpenAI 兼容协议:换 base-url + 模型即可,代码(ChatClient)不变。
       base-url: https://api.deepseek.com
@@ -15,6 +19,13 @@ spring:
       chat:
         options:
           model: ${LLM_MODEL:deepseek-v4-flash}
+# 火山引擎 Ark 多模态 embedding(ArkEmbeddingProperties 绑定);密钥仅来自环境变量。
+ark:
+  embedding:
+    base-url: ${ARK_EMBEDDING_BASE_URL:https://ark.cn-beijing.volces.com/api/v3}
+    api-key: ${ARK_API_KEY:}
+    model: ${ARK_EMBEDDING_MODEL:ep-20260617000458-2mslf}
+    dim: ${ARK_EMBEDDING_DIM:2048}
 mybatis-plus:
   global-config:
     db-config:
