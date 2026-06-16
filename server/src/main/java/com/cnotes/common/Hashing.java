@@ -12,4 +12,12 @@ public final class Hashing {
             return HexFormat.of().formatHex(d);
         } catch (Exception e) { throw new IllegalStateException(e); }
     }
+
+    /** 微信公众号 URL/消息签名校验用(sha1)。 */
+    public static String sha1Hex(String s) {
+        try {
+            byte[] d = MessageDigest.getInstance("SHA-1").digest(s.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(d);
+        } catch (Exception e) { throw new IllegalStateException(e); }
+    }
 }

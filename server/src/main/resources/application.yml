@@ -25,3 +25,7 @@ worker:
   poll-interval-ms: 5000
   max-retry: 5
   backoff-base-seconds: 30
+wechat:
+  # 公众号「服务器配置」的 Token(明文/兼容模式);仅来自环境变量,严禁写入仓库。
+  token: ${WECHAT_TOKEN:}
+  welcome-reply: "已收下,正在自动整理 ✅ 处理完可在阅读端查看。"
