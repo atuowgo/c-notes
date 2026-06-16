@@ -21,8 +21,14 @@
 3. 配置保存时微信发 GET 校验 → 本端回显 `echostr` 即通过。
 4. 之后用户给公众号**发文章链接 / 转发链接**,即落入收件箱(`source_type=wechat`)。
 
+## 正文抓取(已补,2026-06-16)
+
+- 新增 `ContentFetcher`(`com.cnotes.extract`):Worker 处理时若 `content` 为空(微信/裸 URL),用 **jsoup 一次 HTTP 抓取 + 启发式提取**正文兜底,并回填标题、置 `extract_method=server-fetch`;抓不到则抛错走重试/退避。
+- 提取策略:优先命中常见正文容器(`#js_content` 微信、`.mw-parser-output` 维基、`[itemprop=articleBody]`、`.post-content/.entry-content` 等),否则按"段落文本量最大容器"启发式,最后回退 `body`;抓取前剥离 `script/style/nav/aside` 等页面 chrome。
+- 微信公众号文章页是服务端渲染静态 HTML(正文在 `#js_content`),普通抓取即可拿全。**实跑验证**:提交一个仅含 URL 的链接,Worker 自动抓取正文(回填标题)→ DeepSeek 出摘要/标签 → done。
+
 ## 已知缺口 / 后续
 
-- **正文抓取**:微信文本只带 URL(无正文),入库后 `content` 为空,Worker 出的摘要会很弱。需配套**二/三级抓取**(服务器无头浏览器渲染 `/` 公众号正文)——独立计划,与本入口解耦。
+- **强动态页 / 需登录页**:纯 HTTP 抓取拿不到(JS 渲染、付费墙、反爬)。这是三级抓取里最重的"无头浏览器渲染",留作后续硬化。
 - **安全模式(AES)**:当前仅明文模式;若公众号强制安全模式,需补 `EncodingAESKey` 的消息加解密。
 - **关注/事件消息**:目前统一回引导语,未做关注自动回复等运营能力。

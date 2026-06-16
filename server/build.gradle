@@ -23,6 +23,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation "com.baomidou:mybatis-plus-spring-boot4-starter:${mybatisPlusVersion}"
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+    implementation 'org.jsoup:jsoup:1.18.3'   // 服务端正文抓取/提取(裸 URL、微信公众号)
     implementation 'org.springframework.boot:spring-boot-flyway'
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.flywaydb:flyway-mysql'
