@@ -27,8 +27,17 @@
 - 提取策略:优先命中常见正文容器(`#js_content` 微信、`.mw-parser-output` 维基、`[itemprop=articleBody]`、`.post-content/.entry-content` 等),否则按"段落文本量最大容器"启发式,最后回退 `body`;抓取前剥离 `script/style/nav/aside` 等页面 chrome。
 - 微信公众号文章页是服务端渲染静态 HTML(正文在 `#js_content`),普通抓取即可拿全。**实跑验证**:提交一个仅含 URL 的链接,Worker 自动抓取正文(回填标题)→ DeepSeek 出摘要/标签 → done。
 
+## 无头浏览器(三级抓取最重一级,已补,2026-06-16)
+
+- 新增 `HeadlessRenderer`(Playwright + Chromium):HTTP 抓取结果过薄(`< extract.min-content-length`,默认 200)时,渲染 JS 后再用同一套提取逻辑取正文,取更丰富者。处理强动态/SPA 页。
+- **默认关闭**(`extract.headless.enabled=false`):未启用或浏览器缺失时静默降级到 HTTP 结果,绝不影响启动。容器/root 下启动加了 `--no-sandbox --disable-dev-shm-usage`;等待策略用 `LOAD`(比 `NETWORKIDLE` 稳)。
+- **启用**:设 `HEADLESS_ENABLED=true`,并在部署环境安装浏览器与系统库:
+  `npx playwright install --with-deps chromium`(或 Playwright CLI)。
+- **验证**:编排逻辑单测覆盖(HTTP 过薄→走无头、够厚→跳过);`HeadlessRendererLiveTest`(默认跳过,`HEADLESS_TEST=true` 开启)。本沙箱已装 Chromium + 系统库,无头浏览器能启动并导航成功,仅因**沙箱出网为 TLS 拦截代理、其 CA 不被 Chromium 信任**(`ERR_CERT_AUTHORITY_INVALID`)而无法在此完成真实页面渲染——纯环境限制,干净网络/正确 CA 的部署环境可正常工作(故未在生产代码加 `--ignore-certificate-errors`)。
+
 ## 已知缺口 / 后续
 
-- **强动态页 / 需登录页**:纯 HTTP 抓取拿不到(JS 渲染、付费墙、反爬)。这是三级抓取里最重的"无头浏览器渲染",留作后续硬化。
+- **需登录态 / 强反爬页**:无头浏览器看不到用户登录态,可能被反爬拦截(诚实盲区)。
+- **无头性能**:当前每次调用独立创建 Playwright/浏览器(兜底低频,正确性优先);高频时可改为浏览器实例池化。
 - **安全模式(AES)**:当前仅明文模式;若公众号强制安全模式,需补 `EncodingAESKey` 的消息加解密。
 - **关注/事件消息**:目前统一回引导语,未做关注自动回复等运营能力。

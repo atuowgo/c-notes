@@ -2,11 +2,17 @@ package com.cnotes.extract;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 class ContentFetcherTest {
 
-    private final ContentFetcher fetcher = new ContentFetcher();
+    // 无头默认不触发:提取类用例用一个永远返回空的 renderer。
+    private final HeadlessRenderer noHeadless = mock(HeadlessRenderer.class);
+    private final ContentFetcher fetcher = new ContentFetcher(noHeadless, 200);
 
     @Test
     void extractsWeChatArticleBodyAndTitle() {
@@ -40,5 +46,34 @@ class ContentFetcherTest {
         assertThat(ex.title()).isEqualTo("文章 H1 标题");
         assertThat(ex.text()).contains("这是正文段落");
         assertThat(ex.text()).doesNotContain("导航");
+    }
+
+    @Test
+    void thinHttpResultFallsBackToHeadlessRender() {
+        String richBody = "这是无头浏览器渲染后才出现的动态正文,内容足够长。".repeat(8);
+        String renderedHtml = "<html><body><article><p>" + richBody + "</p></article></body></html>";
+        HeadlessRenderer renderer = mock(HeadlessRenderer.class);
+        when(renderer.render(any())).thenReturn(Optional.of(renderedHtml));
+        ContentFetcher cf = new ContentFetcher(renderer, 200);
+
+        // HTTP 只拿到很薄的占位内容 → 触发无头兜底
+        ContentFetcher.Extracted thin = new ContentFetcher.Extracted("占位", "加载中…");
+        ContentFetcher.Extracted out = cf.resolve("https://spa.example.com/x", thin);
+
+        assertThat(out.text()).contains("无头浏览器渲染后才出现");
+        verify(renderer).render(any());
+    }
+
+    @Test
+    void richHttpResultSkipsHeadless() {
+        HeadlessRenderer renderer = mock(HeadlessRenderer.class);
+        ContentFetcher cf = new ContentFetcher(renderer, 200);
+        ContentFetcher.Extracted rich =
+            new ContentFetcher.Extracted("标题", "足够长的正文。".repeat(40));
+
+        ContentFetcher.Extracted out = cf.resolve("https://e.com/x", rich);
+
+        assertThat(out).isSameAs(rich);
+        verifyNoInteractions(renderer);   // 够厚不触发渲染
     }
 }

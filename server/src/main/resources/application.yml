@@ -29,3 +29,10 @@ wechat:
   # 公众号「服务器配置」的 Token(明文/兼容模式);仅来自环境变量,严禁写入仓库。
   token: ${WECHAT_TOKEN:}
   welcome-reply: "已收下,正在自动整理 ✅ 处理完可在阅读端查看。"
+extract:
+  # HTTP 抓取正文不足此长度则尝试无头渲染兜底。
+  min-content-length: 200
+  headless:
+    # 默认关闭;开启需安装 Chromium(npx playwright install chromium 或 Playwright CLI)。
+    enabled: ${HEADLESS_ENABLED:false}
+    timeout-ms: 20000

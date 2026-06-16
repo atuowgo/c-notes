@@ -3,17 +3,19 @@ package com.cnotes.extract;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 服务端正文抓取(三级抓取的服务器侧:处理裸 URL、微信公众号文章)。
  *
- * <p>当前实现 = 一次 HTTP 抓取(jsoup)+ 启发式正文提取。微信公众号文章页是
- * <b>服务端渲染的静态 HTML</b>(正文在 {@code #js_content}),普通抓取即可拿全;
- * 强动态页(需登录/JS 渲染)留待无头浏览器后续硬化。
+ * <p>抓取分级:① 一次 HTTP 抓取(jsoup)+ 启发式提取——微信公众号等服务端渲染页够用;
+ * ② HTTP 结果过薄(强动态/SPA 页)且开启时,用 {@link HeadlessRenderer} 无头渲染后再提取,
+ * 取更丰富者。
  */
 @Service
 public class ContentFetcher {
@@ -26,8 +28,39 @@ public class ContentFetcher {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
         + "(KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
+    private final HeadlessRenderer headlessRenderer;
+    private final int minContentLength;
+
+    public ContentFetcher(HeadlessRenderer headlessRenderer,
+                          @Value("${extract.min-content-length:200}") int minContentLength) {
+        this.headlessRenderer = headlessRenderer;
+        this.minContentLength = minContentLength;
+    }
+
     /** 抓取并提取;失败(网络/超时/解析)返回 null,由上层决定重试。 */
     public Extracted fetch(String url) {
+        return resolve(url, httpFetch(url));
+    }
+
+    /**
+     * 编排:HTTP 提取结果够厚就用;过薄(或失败)且无头可用时渲染后再提取,取更丰富者。
+     * 包级可见以便单测,不发网络。
+     */
+    Extracted resolve(String url, Extracted httpResult) {
+        if (textLen(httpResult) >= minContentLength) return httpResult;
+        Optional<String> rendered = headlessRenderer.render(url);
+        if (rendered.isPresent()) {
+            Extracted headless = extractHtml(url, rendered.get());
+            if (textLen(headless) > textLen(httpResult)) return headless;
+        }
+        return httpResult;
+    }
+
+    private static int textLen(Extracted e) {
+        return e == null || e.text() == null ? 0 : e.text().length();
+    }
+
+    private Extracted httpFetch(String url) {
         try {
             Document doc = Jsoup.connect(url)
                 .userAgent(UA)
