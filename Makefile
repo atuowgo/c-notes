@@ -20,8 +20,14 @@ install: ## 安装前端依赖(后端走 Gradle Wrapper 按需自动拉取)
 	cd $(FRONTEND_DIR) && pnpm install
 
 # ---- 后端(Spring Boot)----
-server: ## 启动后端开发服务(localhost:8080,本地用 H2)
-	cd $(SERVER_DIR) && ./gradlew bootRun
+# server/.env(gitignore)放密钥,如 DEEPSEEK_API_KEY=sk-...;下方目标会自动加载。
+LOAD_ENV := set -a; [ -f $(SERVER_DIR)/.env ] && . $(SERVER_DIR)/.env; set +a;
+
+server: ## 启动后端(默认 profile:MySQL + DeepSeek;读 server/.env 的 DEEPSEEK_API_KEY)
+	cd $(SERVER_DIR) && $(LOAD_ENV) ./gradlew bootRun
+
+server-dev: ## 启动后端 dev(H2 + 开轮询 + DeepSeek 真跑;读 server/.env)
+	cd $(SERVER_DIR) && $(LOAD_ENV) ./gradlew bootRun --args='--spring.profiles.active=dev --worker.scheduling.enabled=true'
 
 server-build: ## 编译并打包后端 jar
 	cd $(SERVER_DIR) && ./gradlew build

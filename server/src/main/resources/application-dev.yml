@@ -15,9 +15,12 @@ spring:
       enabled: true
   ai:
     openai:
-      api-key: dev-dummy-key
+      # 设了 DEEPSEEK_API_KEY 则用真 key(可在 dev 下真跑 DeepSeek);否则回退 dummy 走离线演示。
+      # base-url 与模型名继承自 application.yml。
+      api-key: ${DEEPSEEK_API_KEY:dev-dummy-key}
 
 worker:
-  # 演示环境关闭后台轮询:种子数据的 pending/failed 状态保持稳定,便于前端验证三种卡片渲染
+  # 演示环境默认关闭后台轮询:种子数据的 pending/failed 状态保持稳定,便于前端验证三种卡片渲染。
+  # 想在 dev 下真跑 DeepSeek 处理:设 DEEPSEEK_API_KEY 并加 --worker.scheduling.enabled=true。
   scheduling:
     enabled: false
