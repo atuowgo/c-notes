@@ -22,6 +22,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation "com.baomidou:mybatis-plus-spring-boot4-starter:${mybatisPlusVersion}"
+    implementation "com.baomidou:mybatis-plus-jsqlparser:${mybatisPlusVersion}"   // 3.5.9+ 分页拦截器依赖 jsqlparser(已从核心拆出)
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'
     implementation 'org.jsoup:jsoup:1.18.3'   // 服务端正文抓取/提取(裸 URL、微信公众号)
     implementation 'com.microsoft.playwright:playwright:1.49.0'   // 无头浏览器渲染(动态页兜底,默认关闭)

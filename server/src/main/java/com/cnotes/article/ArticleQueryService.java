@@ -1,6 +1,7 @@
 package com.cnotes.article;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cnotes.article.dto.*;
 import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
@@ -27,14 +28,20 @@ public class ArticleQueryService {
     private final TagMapper tagMapper;
     private final ObjectMapper om;
 
-    public List<ArticleCardDto> listInbox() {
-        List<Article> articles = articleMapper.selectList(Wrappers.<Article>lambdaQuery()
-                .orderByDesc(Article::getCreateTime));
+    /** 分页收件箱:page 从 1 起,size 默认调用方给定;此处兜底夹取到 [1,100]。 */
+    public ArticleCardPage listInbox(int page, int size) {
+        int p = Math.max(1, page);
+        int s = Math.min(Math.max(1, size), 100);
+        Page<Article> pg = articleMapper.selectPage(
+            Page.of(p, s),
+            Wrappers.<Article>lambdaQuery().orderByDesc(Article::getCreateTime));
+        List<Article> articles = pg.getRecords();
         Map<String, List<String>> tagsByArticle =
             tagsByArticle(articles.stream().map(Article::getId).toList());
-        return articles.stream()
+        List<ArticleCardDto> items = articles.stream()
             .map(a -> toCard(a, tagsByArticle.getOrDefault(a.getId(), List.of())))
             .toList();
+        return new ArticleCardPage(items, pg.getTotal());
     }
 
     public ArticleDetailDto detail(String id) {

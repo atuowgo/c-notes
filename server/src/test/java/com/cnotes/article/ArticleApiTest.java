@@ -35,6 +35,31 @@ class ArticleApiTest {
         return a.getId();
     }
 
+    /** 用指定标题落一篇文章,返回 id;标题用 ASCII 以便从响应体直接断言。 */
+    private String seedTitled(String title) {
+        String h = java.util.UUID.randomUUID().toString().replace("-", "");
+        Article a = new Article();
+        a.setUrl("https://e.com/pg/" + h); a.setUrlHash(h);
+        a.setTitle(title); a.setStatus("done");
+        articleMapper.insert(a);
+        return a.getId();
+    }
+
+    /**
+     * 落一篇带显式 create_time 的文章。H2(MODE=MySQL)下 DATETIME 仅秒级精度,
+     * 同一秒内插入的多行 create_time 全部相等,orderByDesc 退化为任意序;
+     * 显式给定互异且最新的时间戳可让"最新在前"的分页断言确定可复现
+     * (AutoFillHandler 用 strictInsertFill,字段非空时不覆盖)。
+     */
+    private void seedTitledAt(String title, java.time.LocalDateTime createTime) {
+        String h = java.util.UUID.randomUUID().toString().replace("-", "");
+        Article a = new Article();
+        a.setUrl("https://e.com/pg/" + h); a.setUrlHash(h);
+        a.setTitle(title); a.setStatus("done");
+        a.setCreateTime(createTime);
+        articleMapper.insert(a);
+    }
+
     @Test
     void inboxListsArticles() throws Exception {
         seed();
@@ -71,6 +96,54 @@ class ArticleApiTest {
            .andExpect(jsonPath("$.keyPoints", hasSize(3)))
            .andExpect(jsonPath("$.keyPoints[0]", is("要点A")))
            .andExpect(jsonPath("$.keyPoints[2]", is("要点C")));
+    }
+
+    /** 收件箱必须有界:size 决定单页条数,绝不一次返回全表。 */
+    @Test
+    void inboxCapsToRequestedSize() throws Exception {
+        seedTitled("capA-" + System.nanoTime());
+        seedTitled("capB-" + System.nanoTime());
+        seedTitled("capC-" + System.nanoTime());
+        mvc.perform(get("/api/articles?size=2"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$", hasSize(2)));
+    }
+
+    /** page 偏移生效:第 3 篇(最旧的新插入)只能在第二页取到,不在第一页。 */
+    @Test
+    void inboxPaginatesAcrossPages() throws Exception {
+        String t1 = "pgX-" + System.nanoTime();
+        String t2 = "pgY-" + System.nanoTime();
+        String t3 = "pgZ-" + System.nanoTime();
+        // 显式给 3 个互异且远未来的时间戳,保证它们是全表最新的三行且顺序确定:t1>t2>t3。
+        java.time.LocalDateTime base = java.time.LocalDateTime.of(2099, 1, 1, 0, 0, 0);
+        seedTitledAt(t1, base.plusSeconds(3));
+        seedTitledAt(t2, base.plusSeconds(2));
+        seedTitledAt(t3, base.plusSeconds(1));
+
+        String page1 = mvc.perform(get("/api/articles?page=1&size=2"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$", hasSize(2)))
+           .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        String page2 = mvc.perform(get("/api/articles?page=2&size=2"))
+           .andExpect(status().isOk())
+           .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+
+        // 三篇最新插入占据前三槽位;两页并集必须覆盖全部三篇,证明偏移取到了第一页之外的行。
+        String union = page1 + page2;
+        org.assertj.core.api.Assertions.assertThat(union).contains(t1).contains(t2).contains(t3);
+        // 且第一页装不下三篇,第 3 篇必然来自第二页 —— 偏移真实生效。
+        org.assertj.core.api.Assertions.assertThat(page1.contains(t1) && page1.contains(t2) && page1.contains(t3))
+            .as("第一页不应同时装下三篇").isFalse();
+    }
+
+    /** 分页需回报总数,前端"加载更多"据此判断到底。 */
+    @Test
+    void inboxReportsTotalCount() throws Exception {
+        seedTitled("total-" + System.nanoTime());
+        mvc.perform(get("/api/articles?page=1&size=1"))
+           .andExpect(status().isOk())
+           .andExpect(header().string("X-Total-Count", matchesPattern("\\d+")));
     }
 
     /**
