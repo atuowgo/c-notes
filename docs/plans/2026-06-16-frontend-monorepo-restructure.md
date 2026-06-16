@@ -1,8 +1,10 @@
 # 前端独立化与多端架构 — 规划文档
 
 > 日期:2026-06-16
-> 状态:方向已对齐(脑爆第一轮)。技术栈、仓库组织、部署形态三项关键决策已敲定;落地细节(框架二选一、各端启动时间)随实现细化。
-> 来源:基于现状(前端内嵌于 `server/.../static/index.html`)与产品/架构计划(`docs/plans/2026-06-15-knowledge-network-product-design.md` 第 4 / 5 节「多端 + 云端后台」结论)的脑爆产出。
+> 状态:方向已对齐 + **首期已落地**。三项关键决策已敲定(Vite+Vue / pnpm workspace / 前后端分离);web 端已从 `static` 迁出、浏览器插件已实现,均通过类型检查与构建。移动端方向已定(Capacitor 包壳)。
+> 来源:基于现状(前端原内嵌于 `server/.../static/index.html`)与产品/架构计划(`docs/plans/2026-06-15-knowledge-network-product-design.md` 第 4 / 5 节「多端 + 云端后台」结论)的脑爆产出。
+>
+> **落地进度(2026-06-16)**:`frontend/` monorepo 已建;`packages/{types,api-client,design-tokens}` 三个共享包就位;`apps/web`(Vue 3,迁移自 static 单文件,接通收件箱/详情/收藏三接口)、`apps/extension`(MV3 收集插件,Readability 本地提取正文)均可构建;后端 `static/index.html` 已删除。详见 `frontend/README.md`。
 
 ---
 
@@ -50,16 +52,16 @@ c-notes/
 │   ├── .env.example              # VITE_API_BASE_URL 等
 │   │
 │   ├── apps/
-│   │   └── web/                  # 【本次落地】Web 阅读端(从 static/index.html 迁来)
-│   │       ├── index.html
-│   │       ├── vite.config.ts    # dev 代理 /api → localhost:8080
-│   │       ├── package.json
-│   │       └── src/
-│   │           ├── main.ts
-│   │           ├── App.*         # 收件箱 + 阅读页 + 收藏弹窗
-│   │           ├── views/        # Inbox / Reader
-│   │           └── components/   # Card / DistillCard / CollectModal …
-│   │       # 后续:apps/extension(浏览器插件)、apps/mobile、apps/wechat
+│   │   ├── web/                  # 【已落地】Web 阅读端(Vue 3,从 static/index.html 迁来)
+│   │   │   ├── index.html
+│   │   │   ├── vite.config.ts    # dev 代理 /api → localhost:8080
+│   │   │   ├── package.json
+│   │   │   └── src/              # App.vue + views/{Inbox,Reader} + components/{Card,Distill,CollectModal,Toast}
+│   │   └── extension/            # 【已落地】浏览器收集插件(MV3 + Vue popup)
+│   │       ├── manifest.config.ts
+│   │       ├── vite.config.ts    # @crxjs/vite-plugin
+│   │       └── src/{popup,content}/   # popup 触发 → content 用 Readability 提取 → POST /api/collect
+│   │       # 后续:apps/mobile(Capacitor 包壳 web)、apps/wechat
 │   │
 │   └── packages/
 │       ├── api-client/           # 【本次落地】封装 fetch:listInbox / getArticle / collect
@@ -76,11 +78,11 @@ c-notes/
 - **`packages/ui` 只在 DOM 端之间共享**(web + 浏览器插件,因为都是同一框架的组件)。移动端若走原生/Flutter/RN,复用的是 types + api-client,而非 UI 组件。
 - **结论**:框架二选一(Vue/React)其实是**低风险决策**——选错最多影响 `apps/web` + `apps/extension` + `packages/ui`,动不到最值钱的 types/api-client。所以不必在框架上纠结过久。
 
-### 框架建议(待你拍板,非阻塞)
+### 框架决策(已定)
 
-- **Vue 3 + TS**:更轻、上手快、单人自用项目心智负担小,与原型的清爽风格契合;在浏览器插件里也成熟。
-- **React + TS**:生态最大,若 V3 移动端打算走 **React Native**,可与 web 共享更多(但 UI 层跨 web/RN 共享仍有限)。
-- **倾向**:**Vue 3**(自用优先、简单为王);若你已笃定移动端走 RN,则选 React。**这一项我会在动手前用一个问题跟你最终确认。**
+- **Web / 插件:Vue 3 + TS**(自用优先、简单为王;在浏览器插件里也成熟)。
+- **移动端(V3):Capacitor 包壳本 Web 应用**。阅读型 App 用 WebView 足够,`apps/web` 构建产物直接装进原生壳,**复用全部 `packages/*` 乃至 UI**;需要分享/推送/离线等原生能力时用 Capacitor 插件的 JS API,不写原生代码。Flutter(Dart 割裂 TS 共享层)与 React Native(需 web 改投 React、且要维护第二套 UI)均不选。
+- Capacitor 对前端框架无要求,故它不反向约束 web 端选型——Vue 3 的决定独立成立。
 
 ---
 
@@ -214,10 +216,12 @@ export const tokens = {
 
 ---
 
-## 10. 待定项(不阻塞动手)
+## 10. 待定项(不阻塞)
 
-1. **框架二选一**:Vue 3(倾向)vs React(若移动端笃定走 RN)。动手前一个问题确认。
-2. **Turborepo 是否现在就上**:端只有 1 个时收益小;可先 pnpm workspace,端变多再加 `turbo.json`。倾向**先不加**。
-3. **类型契约自动化**:手写镜像 vs 后端 OpenAPI 生成 TS。MVP 手写,漂移成痛点再自动化。
+1. ~~**框架二选一**~~:**已定 Vue 3**;移动端 **Capacitor 包壳**(见 §3)。
+2. **Turborepo 是否现在就上**:端只有 2 个时收益小;先用 pnpm workspace + `pnpm -r build`,端再变多时加 `turbo.json`。倾向**暂不加**。
+3. **类型契约自动化**:手写镜像(现状)vs 后端 OpenAPI 生成 TS。MVP 手写,漂移成痛点再自动化。
 4. **生产部署细节**:同源反代(推荐)vs CDN+CORS。随上线环境定;本次只保证"独立可构建"。
-5. **状态管理**:web 端是否需要 Pinia/Zustand 等。MVP 数据简单,先用框架内置即可,需要再引。
+5. **状态管理**:web 端是否需要 Pinia 等。MVP 数据简单,先用组件内 `ref` + 父子事件,需要再引。
+6. **插件三级抓取的二/三级**:当前插件只做一级(Readability + DOM 快照),模型清洗 / 服务端无头浏览器兜底见后端抓取计划。
+7. **`apps/web` 演进到原型的丰富 UX**(划线记想法、深聊壳):随产品 MVP 阅读端计划补齐(见 §7)。
