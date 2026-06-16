@@ -41,3 +41,53 @@ export interface CollectRequest {
 export interface CollectResponse {
   id: string;
 }
+
+/** 正文定位锚点:目前用正文字符偏移 [start, end) */
+export interface NoteAnchor {
+  start: number;
+  end: number;
+}
+
+/** 划线 / 想法(批注基础版) */
+export interface Note {
+  id: string;
+  articleId: string;
+  /** 关联文章标题(后端 join 带出,用于"全部想法"跨文章展示) */
+  articleTitle?: string;
+  quote: string;
+  thought?: string;
+  anchor?: NoteAnchor;
+  createTime: string;
+}
+
+export interface CreateNoteRequest {
+  articleId: string;
+  quote: string;
+  thought?: string;
+  anchor?: NoteAnchor;
+}
+
+export interface UpdateNoteRequest {
+  thought?: string;
+}
+
+/** 知识网:主题簇(由标签长成) */
+export interface ClusterCard {
+  id: string;
+  name: string;
+  description?: string;
+  articleCount: number;
+  hasSummary: boolean;
+  summaryUpdatedAt?: string;
+}
+
+export interface ClusterDetail {
+  id: string;
+  name: string;
+  description?: string;
+  /** 演进式综述(AI 维护) */
+  livingSummary?: string;
+  summaryUpdatedAt?: string;
+  articleCount: number;
+  articles: ArticleCard[];
+}

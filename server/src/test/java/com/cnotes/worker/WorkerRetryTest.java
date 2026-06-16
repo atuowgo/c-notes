@@ -25,6 +25,7 @@ class WorkerRetryTest {
 
         Article a = new Article();
         a.setUrl("https://e.com/f"); a.setUrlHash("000000000000000000000000000000f1");
+        a.setContent("已有正文,跳过服务端抓取,聚焦验证 organizer 失败的退避");
         a.setStatus("processing"); a.setRetryCount(0);
         articleMapper.insert(a);
 

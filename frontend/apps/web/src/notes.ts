@@ -1,58 +1,55 @@
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
+import type { Note, NoteAnchor } from '@cnotes/types';
+import { api } from './api';
 
-// 划线记想法(批注基础版)—— MVP 先本地存(localStorage),待后端 note 接口就绪再迁移。
-// anchor 用正文字符偏移 start/end(配合详情返回的 content 字符串重定位高亮)。
-export interface LocalNote {
-  id: string;
-  articleId: string;
-  articleTitle: string;
-  quote: string;
-  thought: string;
-  start: number;
-  end: number;
-  createdAt: string;
-}
+// 划线记想法(批注基础版)—— 已接后端 /api/notes,成为跨端可检索的真数据。
+// 这里维护一份响应式缓存:进入应用时拉全量,增删改本地乐观更新 + 服务端持久化。
+export const notes = ref<Note[]>([]);
+export const notesLoaded = ref(false);
 
-const KEY = 'cnotes.notes.v1';
-
-function load(): LocalNote[] {
+export async function loadNotes(): Promise<void> {
   try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as LocalNote[]) : [];
+    notes.value = await api.listNotes();
+    notesLoaded.value = true;
   } catch {
-    return [];
+    /* 后端不可用时保持空,不阻塞阅读 */
   }
 }
 
-export const notes = ref<LocalNote[]>(load());
-
-watch(
-  notes,
-  (v) => {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(v));
-    } catch {
-      /* 忽略写入配额等异常 */
-    }
-  },
-  { deep: true },
-);
-
-export function notesForArticle(articleId: string): LocalNote[] {
+export function notesForArticle(articleId: string): Note[] {
   return notes.value.filter((n) => n.articleId === articleId);
 }
 
-export function addNote(n: Omit<LocalNote, 'id' | 'createdAt'>): string {
-  const id = crypto.randomUUID();
-  notes.value.unshift({ ...n, id, createdAt: new Date().toISOString() });
-  return id;
+export async function addNote(input: {
+  articleId: string;
+  quote: string;
+  thought: string;
+  anchor: NoteAnchor;
+}): Promise<Note | null> {
+  try {
+    const created = await api.createNote(input);
+    notes.value.unshift(created);
+    return created;
+  } catch {
+    return null;
+  }
 }
 
-export function updateNote(id: string, patch: Partial<Pick<LocalNote, 'thought'>>): void {
-  const n = notes.value.find((x) => x.id === id);
-  if (n) Object.assign(n, patch);
+export async function updateNoteThought(id: string, thought: string): Promise<void> {
+  try {
+    const updated = await api.updateNote(id, { thought });
+    const i = notes.value.findIndex((n) => n.id === id);
+    if (i >= 0) notes.value[i] = updated;
+  } catch {
+    /* 忽略 */
+  }
 }
 
-export function removeNote(id: string): void {
-  notes.value = notes.value.filter((n) => n.id !== id);
+export async function removeNote(id: string): Promise<void> {
+  try {
+    await api.deleteNote(id);
+    notes.value = notes.value.filter((n) => n.id !== id);
+  } catch {
+    /* 忽略 */
+  }
 }

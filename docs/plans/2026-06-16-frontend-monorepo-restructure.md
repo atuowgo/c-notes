@@ -6,7 +6,9 @@
 >
 > **落地进度(2026-06-16)**:`frontend/` monorepo 已建;`packages/{types,api-client,design-tokens}` 三个共享包就位;`apps/web`(Vue 3,迁移自 static 单文件,接通收件箱/详情/收藏三接口)、`apps/extension`(MV3 收集插件,Readability 本地提取正文)均可构建;后端 `static/index.html` 已删除。详见 `frontend/README.md`。
 >
-> **第二轮(2026-06-16):web 阅读端补齐原型 UX**。按 `docs/prototype/web-reader.html` 落地:标签筛选栏 + 卡片/正文标签、看原文链接、推荐文(同标签近邻)、划线记想法(批注基础版,先本地 localStorage)、AI 深聊入口外壳(纯前端示意)。配套最小后端改动:读接口 `/api/articles`、`/api/articles/{id}` 带出 `tags`(读已有 `article_tag`,不碰归类写入),详情补 `url`;`DevDataSeeder` 加样本标签。后端全量测试通过。
+> **第二轮(2026-06-16):web 阅读端补齐原型 UX**。按 `docs/prototype/web-reader.html` 落地:标签筛选栏 + 卡片/正文标签、看原文链接、推荐文(同标签近邻)、划线记想法(批注基础版)、AI 深聊入口外壳(纯前端示意)。配套最小后端改动:读接口 `/api/articles`、`/api/articles/{id}` 带出 `tags`(读已有 `article_tag`,不碰归类写入),详情补 `url`;`DevDataSeeder` 加样本标签。
+>
+> **第三轮(2026-06-16):划线想法接后端,成为跨端可检索数据**。新增 `note` 包与 `/api/notes`(列表 / 创建 / 改想法 / 删除),`?articleId=` 取本文、`?q=` 跨文章检索 `quote`/`thought`;`anchor` 存正文字符偏移 `{start,end}`(列类型由 `JSON` 改 `TEXT`,与 `key_points` 一致规避 H2 双重编码)。web 端 `notes.ts` 由 localStorage 切换为 `api-client` 调 `/api/notes` 的响应式缓存;"全部想法"抽屉加搜索框。后端全量测试通过,note 接口端到端已验证。
 >
 > **根目录 `Makefile`** 汇总本地编译/启动命令(`make help`)。
 
@@ -228,4 +230,4 @@ export const tokens = {
 4. **生产部署细节**:同源反代(推荐)vs CDN+CORS。随上线环境定;本次只保证"独立可构建"。
 5. **状态管理**:web 端是否需要 Pinia 等。MVP 数据简单,先用组件内 `ref` + 父子事件,需要再引。
 6. **插件三级抓取的二/三级**:当前插件只做一级(Readability + DOM 快照),模型清洗 / 服务端无头浏览器兜底见后端抓取计划。
-7. ~~**`apps/web` 演进到原型的丰富 UX**~~:已补齐(标签筛选/置顶、看原文、推荐文、划线记想法、深聊壳)。**仍待后端化**:划线想法目前存 localStorage,待 `note` 读写接口就绪后迁移(数据模型见后端计划 §5.5);推荐文现为"同标签近邻"粗排,V3 知识网成型后改簇/关联驱动并补"更深入";深聊为纯前端外壳,双引擎检索 V4 接通。
+7. ~~**`apps/web` 演进到原型的丰富 UX**~~:已补齐(标签筛选/置顶、看原文、推荐文、划线记想法、深聊壳)。划线想法已接 `/api/notes`,成为跨端可检索的真数据。**仍待**:推荐文现为"同标签近邻"粗排,V3 知识网成型后改簇/关联驱动并补"更深入";深聊为纯前端外壳,双引擎检索 V4 接通;`note` 的 `anchor` 在正文重排/重抓后的稳定重定位(现为字符偏移,见后端计划 §8)待验证。

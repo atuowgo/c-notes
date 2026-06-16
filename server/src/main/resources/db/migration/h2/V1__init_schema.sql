@@ -61,7 +61,7 @@ CREATE TABLE note (
     article_id  CHAR(32) NOT NULL,
     quote       TEXT     NOT NULL,
     thought     TEXT              DEFAULT NULL,
-    anchor      JSON              DEFAULT NULL,
+    anchor      TEXT              DEFAULT NULL,
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),

@@ -2,6 +2,7 @@ package com.cnotes.worker;
 
 import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
+import com.cnotes.extract.ContentFetcher;
 import com.cnotes.organize.ArticleOrganizer;
 import com.cnotes.organize.OrganizeResult;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,7 @@ class ArticleProcessorTest {
     @Autowired ArticleProcessor processor;
     @Autowired ArticleMapper articleMapper;
     @MockitoBean ArticleOrganizer organizer;
+    @MockitoBean ContentFetcher contentFetcher;
 
     @Test
     void processFillsSummaryPointsAndMarksDone() {
@@ -38,5 +40,27 @@ class ArticleProcessorTest {
         assertThat(got.getSummary()).isEqualTo("摘要");
         assertThat(got.getKeyPoints()).contains("要点1");
         assertThat(got.getProcessedAt()).isNotNull();
+    }
+
+    @Test
+    void blankContentTriggersServerFetchThenOrganizes() {
+        when(contentFetcher.fetch(any()))
+            .thenReturn(new ContentFetcher.Extracted("抓到的标题", "服务端抓到的正文内容"));
+        when(organizer.organize(any(), any(), any()))
+            .thenReturn(new OrganizeResult("摘要", List.of("要点1"), List.of()));
+
+        // 模拟微信入库:仅 URL,无 content、无 title
+        Article a = new Article();
+        a.setUrl("https://mp.weixin.qq.com/s/demo"); a.setUrlHash("000000000000000000000000000000fe");
+        a.setStatus("processing"); a.setRetryCount(0); a.setSourceType("wechat");
+        articleMapper.insert(a);
+
+        processor.process(a);
+
+        Article got = articleMapper.selectById(a.getId());
+        assertThat(got.getStatus()).isEqualTo("done");
+        assertThat(got.getContent()).isEqualTo("服务端抓到的正文内容");
+        assertThat(got.getExtractMethod()).isEqualTo("server-fetch");
+        assertThat(got.getTitle()).isEqualTo("抓到的标题");   // 标题回填
     }
 }

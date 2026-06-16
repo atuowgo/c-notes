@@ -1,8 +1,13 @@
 import type {
   ArticleCard,
   ArticleDetail,
+  ClusterCard,
+  ClusterDetail,
   CollectRequest,
   CollectResponse,
+  CreateNoteRequest,
+  Note,
+  UpdateNoteRequest,
 } from '@cnotes/types';
 
 export class ApiError extends Error {
@@ -19,6 +24,15 @@ export interface CnotesClient {
   listInbox(): Promise<ArticleCard[]>;
   getArticle(id: string): Promise<ArticleDetail>;
   collect(req: CollectRequest): Promise<CollectResponse>;
+  /** 划线想法:不传参取全部;articleId 取本文;q 跨文章检索 quote/thought */
+  listNotes(params?: { articleId?: string; q?: string }): Promise<Note[]>;
+  createNote(req: CreateNoteRequest): Promise<Note>;
+  updateNote(id: string, req: UpdateNoteRequest): Promise<Note>;
+  deleteNote(id: string): Promise<void>;
+  /** 知识网:主题簇列表 / 详情 / 重写综述 */
+  listClusters(): Promise<ClusterCard[]>;
+  getCluster(id: string): Promise<ClusterDetail>;
+  regenerateCluster(id: string): Promise<ClusterDetail>;
 }
 
 /**
@@ -36,8 +50,15 @@ export function createClient(baseUrl = ''): CnotesClient {
       const data = (await res.json().catch(() => null)) as { message?: string } | null;
       throw new ApiError(res.status, data?.message ?? `HTTP ${res.status}`);
     }
+    if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
   }
+
+  const jsonBody = (method: string, body: unknown): RequestInit => ({
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 
   return {
     listInbox: () => request<ArticleCard[]>('/api/articles'),
@@ -45,11 +66,29 @@ export function createClient(baseUrl = ''): CnotesClient {
     getArticle: (id) =>
       request<ArticleDetail>(`/api/articles/${encodeURIComponent(id)}`),
 
-    collect: (req) =>
-      request<CollectResponse>('/api/collect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(req),
-      }),
+    collect: (req) => request<CollectResponse>('/api/collect', jsonBody('POST', req)),
+
+    listNotes: (params) => {
+      const qs = new URLSearchParams();
+      if (params?.articleId) qs.set('articleId', params.articleId);
+      if (params?.q) qs.set('q', params.q);
+      const suffix = qs.toString() ? `?${qs}` : '';
+      return request<Note[]>(`/api/notes${suffix}`);
+    },
+
+    createNote: (req) => request<Note>('/api/notes', jsonBody('POST', req)),
+
+    updateNote: (id, req) =>
+      request<Note>(`/api/notes/${encodeURIComponent(id)}`, jsonBody('PUT', req)),
+
+    deleteNote: (id) =>
+      request<void>(`/api/notes/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+    listClusters: () => request<ClusterCard[]>('/api/clusters'),
+
+    getCluster: (id) => request<ClusterDetail>(`/api/clusters/${encodeURIComponent(id)}`),
+
+    regenerateCluster: (id) =>
+      request<ClusterDetail>(`/api/clusters/${encodeURIComponent(id)}/regenerate`, { method: 'POST' }),
   };
 }

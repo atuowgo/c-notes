@@ -9,7 +9,12 @@ spring:
     password: root
   ai:
     openai:
-      api-key: ${OPENAI_API_KEY:}
+      # DeepSeek 走 OpenAI 兼容协议:换 base-url + 模型即可,代码(ChatClient)不变。
+      base-url: https://api.deepseek.com
+      api-key: ${DEEPSEEK_API_KEY:}      # 密钥仅来自环境变量,严禁写入仓库
+      chat:
+        options:
+          model: ${LLM_MODEL:deepseek-v4-flash}
 mybatis-plus:
   global-config:
     db-config:
@@ -20,3 +25,14 @@ worker:
   poll-interval-ms: 5000
   max-retry: 5
   backoff-base-seconds: 30
+wechat:
+  # 公众号「服务器配置」的 Token(明文/兼容模式);仅来自环境变量,严禁写入仓库。
+  token: ${WECHAT_TOKEN:}
+  welcome-reply: "已收下,正在自动整理 ✅ 处理完可在阅读端查看。"
+extract:
+  # HTTP 抓取正文不足此长度则尝试无头渲染兜底。
+  min-content-length: 200
+  headless:
+    # 默认关闭;开启需安装 Chromium(npx playwright install chromium 或 Playwright CLI)。
+    enabled: ${HEADLESS_ENABLED:false}
+    timeout-ms: 20000

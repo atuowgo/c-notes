@@ -4,7 +4,7 @@ import type { ArticleDetail } from '@cnotes/types';
 import { api } from '../api';
 import { srcLabel } from '../format';
 import { toast } from '../toast';
-import { addNote, updateNote, removeNote, notesForArticle } from '../notes';
+import { addNote, notesForArticle } from '../notes';
 import DistillCard from '../components/DistillCard.vue';
 import RecommendList from '../components/RecommendList.vue';
 
@@ -24,21 +24,24 @@ interface Segment {
   noteId?: string;
 }
 
-// 正文按想法的字符偏移切成段,命中段包 <mark>(由响应式 notes 驱动,survive 重渲染)。
+// 正文按想法锚点(字符偏移)切段,命中段包 <mark>(由响应式 notes 驱动,survive 重渲染)。
 const segments = computed<Segment[]>(() => {
   const content = article.value?.content ?? '';
   const id = article.value?.id;
   if (!content || !id) return [{ text: content }];
   const ns = notesForArticle(id)
-    .filter((n) => n.start >= 0 && n.end <= content.length && n.start < n.end)
-    .sort((a, b) => a.start - b.start);
+    .filter(
+      (n) => n.anchor && n.anchor.start >= 0 && n.anchor.end <= content.length && n.anchor.start < n.anchor.end,
+    )
+    .sort((a, b) => a.anchor!.start - b.anchor!.start);
   const segs: Segment[] = [];
   let cursor = 0;
   for (const n of ns) {
-    if (n.start < cursor) continue; // 重叠则跳过
-    if (n.start > cursor) segs.push({ text: content.slice(cursor, n.start) });
-    segs.push({ text: content.slice(n.start, n.end), noteId: n.id });
-    cursor = n.end;
+    const { start, end } = n.anchor!;
+    if (start < cursor) continue; // 重叠则跳过
+    if (start > cursor) segs.push({ text: content.slice(cursor, start) });
+    segs.push({ text: content.slice(start, end), noteId: n.id });
+    cursor = end;
   }
   if (cursor < content.length) segs.push({ text: content.slice(cursor) });
   return segs;
@@ -63,8 +66,9 @@ watch(() => props.id, load, { immediate: true });
 
 /* ---------- 划线记想法 ---------- */
 const tip = ref<{ left: number; top: number } | null>(null);
-const compose = ref<{ left: number; top: number; noteId: string } | null>(null);
+const compose = ref<{ left: number; top: number } | null>(null);
 const composeText = ref('');
+const composeEl = ref<HTMLTextAreaElement>();
 let pending: { start: number; end: number; quote: string; rect: DOMRect } | null = null;
 
 function offsetTo(node: Node, nodeOffset: number): number {
@@ -78,12 +82,7 @@ function onMouseUp() {
   if (compose.value) return;
   const sel = window.getSelection();
   const body = bodyEl.value;
-  if (!sel || sel.rangeCount === 0 || !body) {
-    tip.value = null;
-    return;
-  }
-  const text = sel.toString();
-  if (!text.trim() || !body.contains(sel.anchorNode)) {
+  if (!sel || sel.rangeCount === 0 || !body || !sel.toString().trim() || !body.contains(sel.anchorNode)) {
     tip.value = null;
     return;
   }
@@ -93,26 +92,17 @@ function onMouseUp() {
   const start = Math.min(a, b);
   const end = Math.max(a, b);
   const content = article.value?.content ?? '';
-  const rect = range.getBoundingClientRect();
-  pending = { start, end, quote: content.slice(start, end), rect };
-  tip.value = { left: rect.left + rect.width / 2, top: rect.top };
+  pending = { start, end, quote: content.slice(start, end), rect: range.getBoundingClientRect() };
+  tip.value = { left: pending.rect.left + pending.rect.width / 2, top: pending.rect.top };
 }
 
+// 点"划线记想法":先弹想法气泡(此时尚未落库),保存才持久化。
 function startMark() {
-  if (!pending || !article.value) return;
-  const noteId = addNote({
-    articleId: article.value.id,
-    articleTitle: article.value.title || '(未命名)',
-    quote: pending.quote,
-    thought: '',
-    start: pending.start,
-    end: pending.end,
-  });
+  if (!pending) return;
   const r = pending.rect;
   compose.value = {
     left: Math.max(12, Math.min(r.left, window.innerWidth - 276)),
     top: r.bottom + 8,
-    noteId,
   };
   composeText.value = '';
   tip.value = null;
@@ -120,15 +110,25 @@ function startMark() {
   nextTick(() => composeEl.value?.focus());
 }
 
-const composeEl = ref<HTMLTextAreaElement>();
-
-function saveNote() {
-  if (compose.value) updateNote(compose.value.noteId, { thought: composeText.value.trim() });
+async function saveNote() {
+  if (!pending || !article.value) {
+    compose.value = null;
+    return;
+  }
+  const note = await addNote({
+    articleId: article.value.id,
+    quote: pending.quote,
+    thought: composeText.value.trim(),
+    anchor: { start: pending.start, end: pending.end },
+  });
   compose.value = null;
+  pending = null;
+  if (!note) toast('保存失败,请确认后端已启动');
 }
+
 function cancelNote() {
-  if (compose.value) removeNote(compose.value.noteId);
   compose.value = null;
+  pending = null;
 }
 </script>
 

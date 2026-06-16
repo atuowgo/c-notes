@@ -61,7 +61,7 @@ CREATE TABLE note (
     article_id  CHAR(32) NOT NULL,
     quote       TEXT     NOT NULL,
     thought     TEXT              DEFAULT NULL,
-    anchor      JSON              DEFAULT NULL COMMENT '正文定位 selector+offset',
+    anchor      TEXT              DEFAULT NULL COMMENT '正文定位 selector+offset(JSON 文本,应用层序列化)',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),

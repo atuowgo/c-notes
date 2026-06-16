@@ -1,19 +1,18 @@
-package com.cnotes.tag.entity;
+package com.cnotes.note.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("tag")
-public class Tag {
+@TableName("note")
+public class Note {
     @TableId(type = IdType.ASSIGN_UUID)
     private String id;
-    private String name;
-    private String description;
-    private String livingSummary;          // 演进式综述(知识网 V3)
-    private Integer summaryMemberCount;     // 上次生成综述时的成员文章数
-    private LocalDateTime summaryUpdatedAt;
+    private String articleId;
+    private String quote;
+    private String thought;
+    private String anchor;        // JSON 文本 {start,end},Service 层(反)序列化
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
