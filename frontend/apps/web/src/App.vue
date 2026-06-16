@@ -7,6 +7,7 @@ import CollectModal from './components/CollectModal.vue';
 import ChatPanel from './components/ChatPanel.vue';
 import IdeasDrawer from './components/IdeasDrawer.vue';
 import Toast from './components/Toast.vue';
+import { loadNotes } from './notes';
 
 const openId = ref<string | null>(null);
 const currentArticle = ref<ArticleDetail | null>(null);
@@ -29,7 +30,10 @@ function onKey(e: KeyboardEvent) {
   else if (collectOpen.value) collectOpen.value = false;
   else if (openId.value) closeReader();
 }
-onMounted(() => document.addEventListener('keydown', onKey));
+onMounted(() => {
+  document.addEventListener('keydown', onKey);
+  loadNotes();
+});
 onUnmounted(() => document.removeEventListener('keydown', onKey));
 </script>
 
