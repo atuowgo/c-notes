@@ -12,8 +12,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.cnotes.chat.vector.ClusterIndexer;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest
@@ -25,6 +28,7 @@ class ClusterServiceTest {
     @Autowired ArticleMapper articleMapper;
     @Autowired ArticleTagMapper articleTagMapper;
     @MockitoBean ClusterSummarizer summarizer;
+    @MockitoBean ClusterIndexer clusterIndexer;   // 隔离 Ark 网络:断言综述写入后触发向量索引
 
     private String seedDoneArticle(String title) {
         String h = java.util.UUID.randomUUID().toString().replace("-", "");
@@ -73,6 +77,8 @@ class ClusterServiceTest {
         assertThat(after.getLivingSummary()).isEqualTo("织好的综述");
         assertThat(after.getSummaryMemberCount()).isEqualTo(2);
         assertThat(clusterService.staleClusterTagIds()).doesNotContain(tag.getId());
+        // 综述写入后,簇被(重)索引进知识网向量库
+        verify(clusterIndexer).index(tag.getId());
     }
 
     @Test

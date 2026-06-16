@@ -31,6 +31,7 @@ class ClusterApiTest {
     @Autowired ArticleMapper articleMapper;
     @Autowired ArticleTagMapper articleTagMapper;
     @MockitoBean ClusterSummarizer summarizer;
+    @MockitoBean com.cnotes.chat.vector.ClusterIndexer clusterIndexer;   // 隔离 Ark 网络
 
     private String seedDone(String title) {
         String h = java.util.UUID.randomUUID().toString().replace("-", "");

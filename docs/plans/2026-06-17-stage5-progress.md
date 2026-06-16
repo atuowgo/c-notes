@@ -13,10 +13,10 @@
 
 | Phase | 名称 | 状态 | git ref |
 |---|---|---|---|
-| P0 | 环境核对 + 三份文档 | ✅ 文档完成 | (待提交) |
-| P1 | V3 迁移 + 实体/Mapper | ✅ 完成 | (见下 commit) |
-| P2 | Ark EmbeddingModel | ✅ 完成 | (见下 commit) |
-| P3 | SimpleVectorStore + ClusterIndexer | ⬜ | |
+| P0 | 环境核对 + 三份文档 | ✅ 文档完成 | 0f9e660 |
+| P1 | V3 迁移 + 实体/Mapper | ✅ 完成 | 4971c7e |
+| P2 | Ark EmbeddingModel | ✅ 完成 | 0f9e660 |
+| P3 | SimpleVectorStore + ClusterIndexer | ✅ 完成 | 89cfa00 |
 | P4 | WebSearch @Tool（源3） | ⬜ | |
 | P5 | ChatContextAssembler（源1/2/3） | ⬜ | |
 | P6 | ChatService + ChatController | ⬜ | |
@@ -46,3 +46,10 @@
 - **接线**：`application.yml` 加 `spring.ai.model.embedding: none`（关 openai embedding 自动配置，DeepSeek 不提供 embedding）+ 顶层 `ark.embedding.{base-url,api-key,model,dim}`（密钥仅来自 env）。dev profile 继承之。
 - **测试**：`ArkEmbeddingModelTest` —— 离线用 Spring `MockRestServiceServer` 绑 `RestClient.Builder`，断言命中 `/embeddings/multimodal`、请求体 type=text、解析 `data.embedding` 单对象为 2048 维；`call()` 多输入各回一条；**`@EnabledIfEnvironmentVariable(ARK_API_KEY)` 的 `realArkReturns2048Dim()` 真打火山引擎活端点**。
 - **验证证据**：带 `server/.env` 跑 `./gradlew test --tests '*ArkEmbeddingModelTest'` → 3 用例 0 跳过 0 失败，`realArkReturns2048Dim()` 耗时 1.704s（真实网络往返 200 + 2048 维）；全量 `./gradlew test` BUILD SUCCESSFUL（18 个测试类 / 46 用例 / 0 失败 0 错误 / 2 env 门控跳过），证明 `@Primary` 组件未破坏任何上下文加载。
+
+### 2026-06-17 — P3 SimpleVectorStore（本地文件型）+ ClusterIndexer + 接线
+- **依赖**：`build.gradle` 加 `org.springframework.ai:spring-ai-vector-store`（BOM 管版本）——经全 spring-ai 缓存 jar grep 确认 `SimpleVectorStore`/`VectorStore` 不在原 classpath（只有 commons 的 observation 约定类），故须显式引入。
+- **TDD（向量库）**：先写 `ClusterIndexerTest`（编译失败 RED：`找不到符号 ClusterIndexer`）→ 实现 `VectorStoreConfig`（`@Bean SimpleVectorStore`，注入 `@Primary` ArkEmbeddingModel，启动时若磁盘有快照则 `load`，构造期不触网）+ `ClusterIndexer`（以 tagId 为 Document id「先删后加」覆盖、metadata 带 tagId/tagName、`save` 落盘 JSON）→ GREEN。离线 3 例用 8 维 hash `StubEmbeddingModel` + `@TempDir` 断言「落库 + metadata + 落盘 + 去重不重复」；**第 4 例 `@EnabledIfEnvironmentVariable(ARK_API_KEY)` 真打火山引擎**：索引「烹饪/航天」两簇，`similaritySearch("红烧牛肉怎么做更入味").topK(1)` 命中烹饪簇 → 真实语义召回打通（4 用例 0 跳过 0 失败）。
+- **TDD（接线）**：`ClusterServiceTest` 加 `@MockitoBean ClusterIndexer` + `verify(clusterIndexer).index(tagId)`（RED：Wanted but not invoked）→ 在 `ClusterService.regenerate()` 综述落库后 `if (summarized) clusterIndexer.index(tagId)`（构造器注入）→ GREEN；`ClusterApiTest` 同加 `@MockitoBean ClusterIndexer` 保持离线（真实走 `/regenerate` 端点不触 Ark）。
+- **验证证据**：`./gradlew test --tests '*ClusterIndexerTest*'` 4/0/0；接线 `*ClusterServiceTest*`+`*ClusterApiTest*` BUILD SUCCESSFUL；全量 `./gradlew test` **BUILD SUCCESSFUL（19 个测试类 / 50 用例 / 0 失败 0 错误 / 2 env 门控跳过）**。向量库落盘路径 `cnotes.vectorstore.path`(默认 `./.data/vectorstore.json`)。
+- 下一步：P4 WebSearchTool `@Tool`（源3，DuckDuckGo+jsoup，优雅降级）。

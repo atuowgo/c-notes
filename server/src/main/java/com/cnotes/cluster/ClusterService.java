@@ -35,6 +35,7 @@ public class ClusterService {
     private final ArticleTagMapper articleTagMapper;
     private final ArticleMapper articleMapper;
     private final ClusterSummarizer summarizer;
+    private final com.cnotes.chat.vector.ClusterIndexer clusterIndexer;
     private final ObjectMapper om;
 
     /** 少于此成员数不生成综述(单篇不构成"簇")。 */
@@ -80,13 +81,18 @@ public class ClusterService {
         upd.setId(tagId);
         upd.setSummaryMemberCount(members.size());
         upd.setSummaryUpdatedAt(LocalDateTime.now());
-        if (members.size() >= minMembers) {
+        boolean summarized = members.size() >= minMembers;
+        if (summarized) {
             List<ClusterSummarizer.ArticleBrief> briefs = members.stream()
                 .map(a -> new ClusterSummarizer.ArticleBrief(a.getTitle(), a.getSummary(), parsePoints(a.getKeyPoints())))
                 .toList();
             upd.setLivingSummary(summarizer.summarize(t.getName(), briefs));
         }
         tagMapper.updateById(upd);
+        // 综述落库后,把该簇(重)索引进知识网向量库(源2),供深聊语义召回。
+        if (summarized) {
+            clusterIndexer.index(tagId);
+        }
     }
 
     /** 找出需要(重)写综述的簇:成员数 >= 下限,且综述缺失或成员数已变化。 */
