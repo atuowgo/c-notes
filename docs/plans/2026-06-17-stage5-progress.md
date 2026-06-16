@@ -16,7 +16,7 @@
 | P0 | 环境核对 + 三份文档 | ✅ 文档完成 | 0f9e660 |
 | P1 | V3 迁移 + 实体/Mapper | ✅ 完成 | 4971c7e |
 | P2 | Ark EmbeddingModel | ✅ 完成 | 0f9e660 |
-| P3 | SimpleVectorStore + ClusterIndexer | ✅ 完成 | 89cfa00 |
+| P3 | SimpleVectorStore + ClusterIndexer | ✅ 完成 | aad07c5 |
 | P4 | WebSearch @Tool（源3） | ⬜ | |
 | P5 | ChatContextAssembler（源1/2/3） | ⬜ | |
 | P6 | ChatService + ChatController | ⬜ | |
