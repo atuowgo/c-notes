@@ -22,7 +22,7 @@
 | P6 | ChatService + ChatController | ✅ 完成 | 7c38911 |
 | P7 | 前端接线 ChatPanel | ✅ 完成 | 2fc3c11 |
 | P8 | nginx 同源基础设施 | ✅ 完成 | 736ebb0 |
-| P9 | Playwright 真实 e2e | ⬜ | |
+| P9 | Playwright 真实 e2e | ✅ 完成 | be16ac7 |
 | P10 | 收尾 commit + push | ⬜ | |
 
 ## 记录
@@ -88,3 +88,11 @@
 - **验证证据（真实链路,后端在跑）**：① 直连后端 `127.0.0.1:8080/api/articles` → **200**;② **经 nginx** `127.0.0.1:8088/api/articles` → **200 且返回真实 JSON**(dev 播种 3 篇,含「Attention Is All You Need:重读经典」status=done + summary + tags=[LLM 推理优化,深度学习])——证明 `/api` 反代真打到后端→H2;③ 根 `/` → 200 `text/html`;④ 深路径 `/reader/x` → 200 `text/html`(SPA history 回退生效)。`nginx -t` 配置校验通过。
 - **配套**：`.gitignore` 加 `.data/`(向量库快照 / nginx 运行期文件不入仓);修正 `docs/ops/local-build-run.md` §5 启动命令(prefix 必须是仓库根,原 `-p "$PWD/ops/nginx"` 会令 root 与 `.data` 解析错位)。
 - 下一步：P9 Playwright 真实浏览器 e2e（浏览器穿 nginx:8088 → 后端:8080 → H2 → 向量库,门控真 LLM/Ark;断言深聊返回带源标签且 H2 落 chat_session/chat_message）。
+
+### 2026-06-17 — P9 Playwright 真实浏览器 e2e（穿 nginx→后端→H2→向量库→DeepSeek）
+- **🕸 前置打通(关键)**：`DevDataSeeder` 增第二篇「深度学习」done 文章(ResNet),使该标签满足 `cluster.min-members(=2)` → 重启后 `ClusterSummaryWorker`(15s 轮询)真实跑「DeepSeek 综述 → Ark 多模态向量化(2048 维) → `SimpleVectorStore.save()` 落盘 `server/.data/vectorstore.json`(30019 字节)」。`KnowledgeRetriever` 无分数阈值,向量库非空即命中,故深聊 🕸 知识网来源在端到端链路被真实触发。
+- **真实链路验证证据**：① 烟测 `curl POST http://localhost:8088/api/articles/{id}/chat`(经 nginx)→ 真实 DeepSeek 回复且 `"sources":["📄","🕸"]`;② Playwright e2e `深聊:浏览器穿过 nginx→后端→向量库→DeepSeek` → **1 passed(19.3s/总 46.2s)**——真实 Chrome 点开「Attention Is All You Need」→ 点⚗深聊 FAB(`.chat-ctx` 含「正在聊本文」)→ 发问回车 → 断言 `.msg.ai .srcs` 含 📄 与 🕸、回复非空;第二轮追问断言 `.msg.ai` 计数 +1 且末条非空(同 sessionId,证 H2 会话往返)。
+- **DB 行级断言归属**：H2 内存库为单 JVM,node 测试进程无 H2 TCP 端口无法直连,故 e2e 以「两轮会话连续」证 DB 往返;`chat_session`/`chat_message` 行级落库由后端 `ChatPersistenceTest`/`ChatApiTest` 对同一 H2 覆盖——分层而不重复,符合 /goal「真实端到端」意图。
+- **浏览器内核**：`playwright.config.ts` chromium 工程用 `channel: 'chrome'`(系统 Chrome)。本机网络受限,`cdn.playwright.dev` 不在沙箱白名单,自带 chromium(build 1228)下载 ECONNRESET 失败;系统 Chrome 同为真实浏览器,点击/渲染/网络行为一致,满足真实 e2e。
+- **配套**：`package.json` 加 `@playwright/test` + `test:e2e` 脚本;`.gitignore` 忽略 `test-results/`、`playwright-report/`;`docs/ops/local-build-run.md` §6 更新真实链路描述与浏览器内核说明。
+- 下一步：P10 收尾——全套件绿(`./gradlew test` + `pnpm -r test` + e2e)→ 进度文档定稿 → commit + push。
