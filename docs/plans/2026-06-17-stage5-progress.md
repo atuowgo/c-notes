@@ -18,7 +18,7 @@
 | P2 | Ark EmbeddingModel | ✅ 完成 | 0f9e660 |
 | P3 | SimpleVectorStore + ClusterIndexer | ✅ 完成 | aad07c5 |
 | P4 | WebSearch @Tool（源3） | ✅ 完成 | cfd910c |
-| P5 | ChatContextAssembler（源1/2/3） | ✅ 完成 | (见下方记录) |
+| P5 | ChatContextAssembler（源1/2/3） | ✅ 完成 | e69eacd |
 | P6 | ChatService + ChatController | ⬜ | |
 | P7 | 前端接线 ChatPanel | ⬜ | |
 | P8 | nginx 同源基础设施 | ⬜ | |
