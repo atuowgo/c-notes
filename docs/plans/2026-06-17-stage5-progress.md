@@ -18,7 +18,7 @@
 | P2 | Ark EmbeddingModel | ✅ 完成 | 0f9e660 |
 | P3 | SimpleVectorStore + ClusterIndexer | ✅ 完成 | aad07c5 |
 | P4 | WebSearch @Tool（源3） | ✅ 完成 | cfd910c |
-| P5 | ChatContextAssembler（源1/2/3） | ⬜ | |
+| P5 | ChatContextAssembler（源1/2/3） | ✅ 完成 | (见下方记录) |
 | P6 | ChatService + ChatController | ⬜ | |
 | P7 | 前端接线 ChatPanel | ⬜ | |
 | P8 | nginx 同源基础设施 | ⬜ | |
@@ -59,3 +59,11 @@
 - **TDD**：先写 `WebSearchToolTest`（编译失败 RED：`找不到符号 WebSearchTool`）→ 实现 → GREEN。离线 3 例:`parseResults` 固定样本断言「标题/摘要 + uddg 解码为真实链接 + topN=2 截断 + 不泄露 uddg 包装」、空/异常 HTML 降级空串、不可达 host 时 `search()` 返回空串不抛;**第 4 例 `@EnabledIfEnvironmentVariable(WEBSEARCH_LIVE=1)` 真打 DuckDuckGo**。
 - **验证证据**：`WEBSEARCH_LIVE=1 ./gradlew test --tests '*WebSearchToolTest*' --rerun-tasks` → `tests="4" skipped="0" failures="0" errors="0"`（**含真实网络往返**，源3 真打 DuckDuckGo 返回非空）；全量 `./gradlew test` BUILD SUCCESSFUL（20 个测试类 / 54 用例 / 0 失败 0 错误 / 3 env 门控跳过）。
 - 下一步：P5 ChatContextAssembler（源1 本文+批注 / 源2 知识网向量检索 / 源3 作为 tool 交给 ChatClient）。
+
+### 2026-06-17 — P5 KnowledgeRetriever（源2 读路径）+ ChatContextAssembler（源1/2/3 编排）
+- **KnowledgeRetriever（源2 读)**：`@Component`,在 `SimpleVectorStore`(由 ClusterIndexer 写入簇综述)上 `similaritySearch(topK)`,把命中 Document → `Hit(tagId/tagName/summary/score)`(metadata + 正文 + 分)。优雅降级:空查询/空库/异常 → 空列表。
+  - TDD:`KnowledgeRetrieverTest`(RED 类不存在)→ 实现 → GREEN。离线复用 `ClusterIndexerTest.StubEmbeddingModel`(同文本→同向量,确定性)断言「检索映射 tagId/tagName/summary + 空库降级 + 空/null 查询降级」;**门控 `ARK_API_KEY` 真打火山引擎**:`retrieve("红烧牛肉怎么做更入味")` 命中 cook 簇。`--rerun-tasks` 4/0/0(0 跳过,含真实语义召回)。
+- **ChatContextAssembler（编排)**：`@Component`,`assemble(articleId, question)` → `ChatContext(systemText, sources)`。源1 📄:文章标题/摘要/要点(JSON 反序列化)+ 该文批注引文/想法;源2 🕸:`knowledgeRetriever.retrieve` 命中簇综述织入;源3 🌐 由 ChatClient 经 WebSearchTool 自行调用,**不在此预取**。sources 记录实际启用的源标签。
+  - TDD:`ChatContextAssemblerTest`(`@SpringBootTest @Transactional`,H2 播种文章+2 批注,`@MockitoBean KnowledgeRetriever` 隔离向量检索)(RED)→ 实现 → GREEN。3 例:源1+源2 织入且 sources 含 📄/🕸、缺文章且无知识网命中 → sources 空、有文章无知识网 → 仅 📄。
+- **验证证据**：全量 `./gradlew test` BUILD SUCCESSFUL（22 个测试类 / 61 用例 / 0 失败 0 错误 / 3 env 门控跳过）。
+- 下一步：P6 ChatService + ChatController（POST `/api/articles/{id}/chat`,ChatClient 注入 WebSearchTool,持久化 session/message,sources 标签随回复返回）。
