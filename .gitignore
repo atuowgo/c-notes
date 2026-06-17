@@ -33,6 +33,9 @@ temp/
 *.tmp
 *.bak
 
+# ---- Local runtime state (vector store, nginx pid/temp, etc.) ----
+.data/
+
 # ---- Dependencies / build (for when code lands) ----
 node_modules/
 dist/
