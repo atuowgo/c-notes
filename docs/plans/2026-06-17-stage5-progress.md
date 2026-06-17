@@ -19,7 +19,7 @@
 | P3 | SimpleVectorStore + ClusterIndexer | ✅ 完成 | aad07c5 |
 | P4 | WebSearch @Tool（源3） | ✅ 完成 | cfd910c |
 | P5 | ChatContextAssembler（源1/2/3） | ✅ 完成 | e69eacd |
-| P6 | ChatService + ChatController | ⬜ | |
+| P6 | ChatService + ChatController | ✅ 完成 | 7c38911 |
 | P7 | 前端接线 ChatPanel | ⬜ | |
 | P8 | nginx 同源基础设施 | ⬜ | |
 | P9 | Playwright 真实 e2e | ⬜ | |
@@ -67,3 +67,9 @@
   - TDD:`ChatContextAssemblerTest`(`@SpringBootTest @Transactional`,H2 播种文章+2 批注,`@MockitoBean KnowledgeRetriever` 隔离向量检索)(RED)→ 实现 → GREEN。3 例:源1+源2 织入且 sources 含 📄/🕸、缺文章且无知识网命中 → sources 空、有文章无知识网 → 仅 📄。
 - **验证证据**：全量 `./gradlew test` BUILD SUCCESSFUL（22 个测试类 / 61 用例 / 0 失败 0 错误 / 3 env 门控跳过）。
 - 下一步：P6 ChatService + ChatController（POST `/api/articles/{id}/chat`,ChatClient 注入 WebSearchTool,持久化 session/message,sources 标签随回复返回）。
+
+### 2026-06-17 — P6 ChatService + ChatController（深聊 API 端点）
+- **实现**：`POST /api/articles/{id}/chat`（`ChatController`）→ `ChatService.chat(articleId, ChatRequest)`：① `ensureSession` 按 `sessionId` 续聊或新建会话（title 取首条消息前 30 字）；② `ChatContextAssembler.assemble` 织源1/源2 上下文；③ `chatClient.prompt().system(ctx).user(msg).tools(webSearchTool).call()`——源3 由模型按需调 WebSearchTool；④ 落库 user/assistant 两条 `ChatMessage`（sources JSON 写在 assistant 行，用 Jackson 3 `tools.jackson` ObjectMapper bean）；⑤ 返回 `ChatReply(sessionId, reply, sources)`。DTO：`ChatRequest(message, sessionId?)`、`ChatReply(sessionId, reply, sources)`。ChatClient 由 Spring AI 自动配置指向 DeepSeek（不自建抽象层）。
+- **TDD**：先写 `ChatApiTest`（RED：POST 404，断言失败于 line 85/117）→ 建 DTO/Service/Controller → GREEN。用 stub `ChatModel`（`@Bean @Primary` 返回固定串）保证 CI 确定性、`@MockitoBean KnowledgeRetriever` 隔离 Ark 网络。2 例：① 持久化（1 session + 2 message，user content / assistant 含「小火慢炖」/ assistant.sources 含 📄🕸）+ 响应 `$.sources` 含 📄🕸；② 传 `sessionId` 续聊复用同会话（4 message / 该文 1 session）。本机真实 LLM 由 P9 门控覆盖。
+- **验证证据**：全量 `./gradlew test` **BUILD SUCCESSFUL（23 个测试类 / 63 用例 / 0 失败 0 错误 / 6 env 门控跳过）**。
+- 下一步：P7 前端接线 ChatPanel（types ChatRequest/ChatReply/ChatMessage、api-client `chat(articleId,{message,sessionId?})`、ChatPanel.vue 去 mock、vitest spec）。
