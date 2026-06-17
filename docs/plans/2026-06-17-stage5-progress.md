@@ -20,7 +20,7 @@
 | P4 | WebSearch @Tool（源3） | ✅ 完成 | cfd910c |
 | P5 | ChatContextAssembler（源1/2/3） | ✅ 完成 | e69eacd |
 | P6 | ChatService + ChatController | ✅ 完成 | 7c38911 |
-| P7 | 前端接线 ChatPanel | ⬜ | |
+| P7 | 前端接线 ChatPanel | ✅ 完成 | 2fc3c11 |
 | P8 | nginx 同源基础设施 | ⬜ | |
 | P9 | Playwright 真实 e2e | ⬜ | |
 | P10 | 收尾 commit + push | ⬜ | |
@@ -73,3 +73,11 @@
 - **TDD**：先写 `ChatApiTest`（RED：POST 404，断言失败于 line 85/117）→ 建 DTO/Service/Controller → GREEN。用 stub `ChatModel`（`@Bean @Primary` 返回固定串）保证 CI 确定性、`@MockitoBean KnowledgeRetriever` 隔离 Ark 网络。2 例：① 持久化（1 session + 2 message，user content / assistant 含「小火慢炖」/ assistant.sources 含 📄🕸）+ 响应 `$.sources` 含 📄🕸；② 传 `sessionId` 续聊复用同会话（4 message / 该文 1 session）。本机真实 LLM 由 P9 门控覆盖。
 - **验证证据**：全量 `./gradlew test` **BUILD SUCCESSFUL（23 个测试类 / 63 用例 / 0 失败 0 错误 / 6 env 门控跳过）**。
 - 下一步：P7 前端接线 ChatPanel（types ChatRequest/ChatReply/ChatMessage、api-client `chat(articleId,{message,sessionId?})`、ChatPanel.vue 去 mock、vitest spec）。
+
+### 2026-06-17 — P7 前端接线 ChatPanel（深聊接真后端）
+- **共享契约（types）**：`packages/types` 加 `ChatRole/ChatRequest(message,sessionId?)/ChatReply(sessionId,reply,sources)/ChatMessage(role,content,sources?)`，与后端 DTO 一一对齐,作为多端单一来源。
+- **api-client**：`CnotesClient` 加 `chat(articleId, {message, sessionId?})` → `POST /api/articles/{id}/chat`（沿用 `request`/`jsonBody` 层做错误规范化为 `ApiError`、article id 经 `encodeURIComponent`）。
+- **TDD（vitest 首次引入前端）**：`packages/api-client` 加 `vitest` devDep + `test: vitest run`。先写 `src/index.test.ts`（打桩 global `fetch`）RED（`client.chat is not a function`，3 例失败）→ 实现 `chat()` → GREEN。3 例:首轮 POST 到 `/api/articles/a1/chat`、body 仅 `{message}`、解析 ChatReply;续聊带 `sessionId` 且 article id `a/b`→`a%2Fb`;非 2xx → 抛 `ApiError`。
+- **web 去 mock**：`ChatPanel.vue` 删除 `setTimeout` 假回复 → 真调 `api.chat(articleId,{message,sessionId})`,跨轮用 ref 跟踪后端回传 `sessionId` 续接上下文、渲染后端真实 `sources` 标签、`sending` 守卫禁重入、切换文章重置会话;无 `articleId` 时提示先开文章。错误经 `ApiError` 友好提示。`App.vue` 传 `:article-id="openId"`。底部提示由「原型示意 · V4」改为三层来源说明。
+- **验证证据**：`pnpm --filter @cnotes/api-client test` → **3 passed (3)**;`pnpm --filter @cnotes/api-client typecheck`（tsc）与 `pnpm --filter @cnotes/web typecheck`（vue-tsc）均 0 报错。浏览器全链路点击留 P9 真实 e2e 覆盖。
+- 下一步：P8 nginx 同源基础设施（web dist 根 + `/api/`→`127.0.0.1:8080` 反代 + `try_files`,装并起 nginx）。
