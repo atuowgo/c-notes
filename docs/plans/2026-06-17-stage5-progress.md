@@ -7,7 +7,7 @@
 - DeepSeek chat：200 OK，model `deepseek-chat`（OpenAI 兼容，仅对话）。
 - 火山引擎 Ark embedding：纯文本 `/embeddings` → **400**（视觉模型 `doubao-embedding-vision-251215` 不支持该 api）；`/embeddings/multimodal` → **200**，`data.embedding` 长度 **2048**。接入点 `ep-20260617000458-2mslf`。
 - `server/.env` 已建并被 `.gitignore` 命中（不入仓）：`DEEPSEEK_API_KEY/LLM_MODEL/ARK_API_KEY/ARK_EMBEDDING_BASE_URL/ARK_EMBEDDING_MODEL/ARK_EMBEDDING_DIM`。
-- nginx：尚未安装（Task 8 处理）。
+- nginx：已装（brew nginx 1.31.1），仓库内自带可移植配置 `ops/nginx/cnotes.dev.conf`，监听 8088（避开后端 8080）。
 
 ## Phase 状态总览
 
@@ -21,7 +21,7 @@
 | P5 | ChatContextAssembler（源1/2/3） | ✅ 完成 | e69eacd |
 | P6 | ChatService + ChatController | ✅ 完成 | 7c38911 |
 | P7 | 前端接线 ChatPanel | ✅ 完成 | 2fc3c11 |
-| P8 | nginx 同源基础设施 | ⬜ | |
+| P8 | nginx 同源基础设施 | ✅ 完成 | 736ebb0 |
 | P9 | Playwright 真实 e2e | ⬜ | |
 | P10 | 收尾 commit + push | ⬜ | |
 
@@ -81,3 +81,10 @@
 - **web 去 mock**：`ChatPanel.vue` 删除 `setTimeout` 假回复 → 真调 `api.chat(articleId,{message,sessionId})`,跨轮用 ref 跟踪后端回传 `sessionId` 续接上下文、渲染后端真实 `sources` 标签、`sending` 守卫禁重入、切换文章重置会话;无 `articleId` 时提示先开文章。错误经 `ApiError` 友好提示。`App.vue` 传 `:article-id="openId"`。底部提示由「原型示意 · V4」改为三层来源说明。
 - **验证证据**：`pnpm --filter @cnotes/api-client test` → **3 passed (3)**;`pnpm --filter @cnotes/api-client typecheck`（tsc）与 `pnpm --filter @cnotes/web typecheck`（vue-tsc）均 0 报错。浏览器全链路点击留 P9 真实 e2e 覆盖。
 - 下一步：P8 nginx 同源基础设施（web dist 根 + `/api/`→`127.0.0.1:8080` 反代 + `try_files`,装并起 nginx）。
+
+### 2026-06-17 — P8 nginx 同源基础设施（8088 → web dist + /api 反代）
+- **配置**：`ops/nginx/cnotes.dev.conf` 自包含、机器无关——以**仓库根为 prefix** 运行（`nginx -p "$PWD/" -c ops/nginx/cnotes.dev.conf`），故 `root frontend/apps/web/dist` 与运行期目录 `.data/nginx/`(pid/日志/临时,均 gitignore)都按仓库根相对解析,不写死任何绝对路径;内联最小 MIME 映射避免依赖 brew/apt 的 `mime.types` 绝对路径。监听 **8088** 避开后端 8080。`location /api/` 反代 `127.0.0.1:8080`(保留 `/api` 前缀、`proxy_read_timeout 120s` 容深聊一轮等 LLM)、`location /` `try_files $uri $uri/ /index.html` 做 SPA history 回退。生产仅需改 `listen 80/443`+证书+`root` 指向部署目录,location 规则不变。
+- **依赖拉起**：brew 装 nginx(homebrew 域不在沙箱白名单,装时临时禁沙箱);web 产物 `pnpm --filter @cnotes/web build` → `frontend/apps/web/dist`;后端 `make server-dev`(H2 内存 + DeepSeek,Tomcat 8080,Flyway 跑 V1/V2/V3 三迁移)。
+- **验证证据（真实链路,后端在跑）**：① 直连后端 `127.0.0.1:8080/api/articles` → **200**;② **经 nginx** `127.0.0.1:8088/api/articles` → **200 且返回真实 JSON**(dev 播种 3 篇,含「Attention Is All You Need:重读经典」status=done + summary + tags=[LLM 推理优化,深度学习])——证明 `/api` 反代真打到后端→H2;③ 根 `/` → 200 `text/html`;④ 深路径 `/reader/x` → 200 `text/html`(SPA history 回退生效)。`nginx -t` 配置校验通过。
+- **配套**：`.gitignore` 加 `.data/`(向量库快照 / nginx 运行期文件不入仓);修正 `docs/ops/local-build-run.md` §5 启动命令(prefix 必须是仓库根,原 `-p "$PWD/ops/nginx"` 会令 root 与 `.data` 解析错位)。
+- 下一步：P9 Playwright 真实浏览器 e2e（浏览器穿 nginx:8088 → 后端:8080 → H2 → 向量库,门控真 LLM/Ark;断言深聊返回带源标签且 H2 落 chat_session/chat_message）。

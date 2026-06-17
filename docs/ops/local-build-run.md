@@ -68,8 +68,10 @@ make web        # http://localhost:5173
 ```bash
 cd frontend && pnpm --filter @cnotes/web build   # 产出 frontend/apps/web/dist
 # 用仓库内模板启动 nginx（监听 http://localhost:8088）
-nginx -p "$PWD/ops/nginx" -c "$PWD/ops/nginx/cnotes.dev.conf"
-# 停止：nginx -p "$PWD/ops/nginx" -s stop
+# prefix 必须是仓库根：配置内 root(frontend/apps/web/dist) 与运行期目录(.data/nginx)都按仓库根相对解析。
+cd "$REPO_ROOT" && nginx -p "$PWD/" -c ops/nginx/cnotes.dev.conf
+# 校验：nginx -p "$PWD/" -c ops/nginx/cnotes.dev.conf -t
+# 停止：nginx -p "$PWD/" -c ops/nginx/cnotes.dev.conf -s stop
 ```
 
 `ops/nginx/cnotes.dev.conf` 要点：`root` 指向 web 的 `dist`，`location /api/ { proxy_pass http://127.0.0.1:8080; }`，`try_files $uri /index.html`（SPA 回退）。前端打包时 `VITE_API_BASE_URL` 留空 → 同源请求 `/api/...`。
