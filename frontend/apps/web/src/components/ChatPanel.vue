@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
+import { api } from '../api';
+import { ApiError } from '@cnotes/api-client';
 
-// AI 深聊入口外壳(§6.5):仅交互示意,双引擎检索(私域知识网 + 联网)为 V4。
-const props = defineProps<{ articleTitle?: string | null }>();
+// AI 深聊入口(§6.5):围绕锚定文章发起一轮对话,后端三源(本文/知识网/联网)综合回答。
+const props = defineProps<{ articleId?: string | null; articleTitle?: string | null }>();
 
 interface Msg {
   role: 'ai' | 'me';
@@ -15,6 +17,9 @@ const onArticleCtx = ref(false);
 const input = ref('');
 const messages = ref<Msg[]>([]);
 const bodyEl = ref<HTMLElement>();
+const sending = ref(false);
+// 后端会话 id:首轮为空由后端新建,后续轮次回传以续接上下文。
+const sessionId = ref<string | undefined>(undefined);
 
 const ctxIsArticle = computed(() => onArticleCtx.value && !!props.articleTitle);
 
@@ -36,25 +41,37 @@ function openChat() {
   scrollDown();
 }
 
-function send() {
+async function send() {
   const v = input.value.trim();
-  if (!v) return;
+  if (!v || sending.value) return;
+  const articleId = props.articleId;
+  if (!articleId) {
+    messages.value.push({ role: 'ai', text: '请先打开一篇文章,再开始深聊。' });
+    scrollDown();
+    return;
+  }
   messages.value.push({ role: 'me', text: v });
   input.value = '';
+  sending.value = true;
   scrollDown();
-  setTimeout(() => {
-    messages.value.push({
-      role: 'ai',
-      text: `(原型示意)我会综合${ctxIsArticle.value ? '本文、' : ''}你的知识网和联网内容来回答。`,
-      srcs: ['📄 本文', '🕸 知识网', '🌐 联网'],
-    });
+  try {
+    const reply = await api.chat(articleId, { message: v, sessionId: sessionId.value });
+    sessionId.value = reply.sessionId;
+    messages.value.push({ role: 'ai', text: reply.reply, srcs: reply.sources });
+  } catch (e) {
+    const msg = e instanceof ApiError ? `出错了(${e.status})` : '网络异常,请稍后重试。';
+    messages.value.push({ role: 'ai', text: msg });
+  } finally {
+    sending.value = false;
     scrollDown();
-  }, 350);
+  }
 }
 
+// 切换文章时重置会话,避免把上一篇的上下文带过来。
 watch(
-  () => props.articleTitle,
+  () => props.articleId,
   () => {
+    sessionId.value = undefined;
     if (!props.articleTitle) onArticleCtx.value = false;
   },
 );
@@ -92,11 +109,12 @@ watch(
       <textarea
         v-model="input"
         rows="1"
+        :disabled="sending"
         placeholder="问点什么…(基于本文 + 知识网 + 联网)"
         @keydown.enter.exact.prevent="send"
       ></textarea>
-      <button class="send" @click="send">↑</button>
+      <button class="send" :disabled="sending" @click="send">{{ sending ? '…' : '↑' }}</button>
     </div>
-    <div class="chat-hint">原型示意 · 深聊为 V4 能力 · 三层来源:本文 + 知识网 + 联网</div>
+    <div class="chat-hint">三层来源:📄 本文 + 🕸 知识网 + 🌐 联网</div>
   </div>
 </template>

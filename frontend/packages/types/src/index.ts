@@ -91,3 +91,26 @@ export interface ClusterDetail {
   articleCount: number;
   articles: ArticleCard[];
 }
+
+/** 深聊角色:与后端 chat_message.role 对齐 */
+export type ChatRole = 'user' | 'assistant';
+
+/** 深聊一轮请求:用户消息 + 可选续聊会话 id(为空则后端新建会话) */
+export interface ChatRequest {
+  message: string;
+  sessionId?: string;
+}
+
+/** 深聊一轮回复:会话 id + 助手回复 + 本轮实际启用的源标签(📄 本文 / 🕸 知识网 / 🌐 联网) */
+export interface ChatReply {
+  sessionId: string;
+  reply: string;
+  sources: string[];
+}
+
+/** 深聊消息(对齐后端 chat_message:role + 正文 + 源标签) */
+export interface ChatMessage {
+  role: ChatRole;
+  content: string;
+  sources?: string[];
+}

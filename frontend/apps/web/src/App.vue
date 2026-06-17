@@ -87,7 +87,10 @@ onUnmounted(() => document.removeEventListener('keydown', onKey));
   </template>
 
   <CollectModal :open="collectOpen" @close="collectOpen = false" @collected="inbox?.load()" />
-  <ChatPanel :article-title="openId ? currentArticle?.title : null" />
+  <ChatPanel
+    :article-id="openId"
+    :article-title="openId ? currentArticle?.title : null"
+  />
   <IdeasDrawer
     v-if="drawer"
     :scope="drawer.scope"

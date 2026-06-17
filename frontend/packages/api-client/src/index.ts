@@ -1,6 +1,8 @@
 import type {
   ArticleCard,
   ArticleDetail,
+  ChatReply,
+  ChatRequest,
   ClusterCard,
   ClusterDetail,
   CollectRequest,
@@ -33,6 +35,8 @@ export interface CnotesClient {
   listClusters(): Promise<ClusterCard[]>;
   getCluster(id: string): Promise<ClusterDetail>;
   regenerateCluster(id: string): Promise<ClusterDetail>;
+  /** 深聊:围绕锚定文章发起/续接一轮对话;sessionId 为空则后端新建会话 */
+  chat(articleId: string, req: ChatRequest): Promise<ChatReply>;
 }
 
 /**
@@ -90,5 +94,8 @@ export function createClient(baseUrl = ''): CnotesClient {
 
     regenerateCluster: (id) =>
       request<ClusterDetail>(`/api/clusters/${encodeURIComponent(id)}/regenerate`, { method: 'POST' }),
+
+    chat: (id, req) =>
+      request<ChatReply>(`/api/articles/${encodeURIComponent(id)}/chat`, jsonBody('POST', req)),
   };
 }
