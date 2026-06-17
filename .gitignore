@@ -36,6 +36,11 @@ temp/
 # ---- Local runtime state (vector store, nginx pid/temp, etc.) ----
 .data/
 
+# ---- Playwright e2e 产物(报告/trace/截图,不入库) ----
+test-results/
+playwright-report/
+.playwright/
+
 # ---- Dependencies / build (for when code lands) ----
 node_modules/
 dist/

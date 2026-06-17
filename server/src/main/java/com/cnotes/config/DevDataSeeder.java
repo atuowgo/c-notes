@@ -39,6 +39,18 @@ public class DevDataSeeder implements CommandLineRunner {
         articleMapper.insert(attention);
         tagArticle(attention.getId(), "LLM 推理优化", "深度学习");
 
+        // 第二篇「深度学习」已就绪文章:让该标签满足 cluster.min-members(=2),
+        // 触发 ClusterSummaryWorker 真实跑「DeepSeek 综述 → Ark 向量化 → SimpleVectorStore 落盘」,
+        // 从而深聊的 🕸 知识网来源可在端到端链路中被真实命中。
+        Article resnet = done(
+            "https://mp.weixin.qq.com/s/demo-resnet",
+            "深度残差网络 ResNet:让千层网络可训练", "何恺明", "wechat",
+            "ResNet 通过残差连接缓解深层网络的退化问题,使上百层乃至上千层的网络也能稳定收敛。本文重读其动机与设计。",
+            "[\"残差连接让梯度可以直接回传,缓解梯度消失\",\"恒等映射使更深的网络至少不劣于浅层\",\"瓶颈结构在保持表达力的同时降低计算量\",\"批归一化与残差协同稳定训练\"]",
+            "ResNet 以残差学习重构深层网络的优化目标,用跳跃连接让极深网络可训练,成为现代视觉与多领域骨干网络的基础。");
+        articleMapper.insert(resnet);
+        tagArticle(resnet.getId(), "深度学习");
+
         Article rust = pending(
             "https://www.example.com/blog/rust-ownership",
             "理解 Rust 所有权与借用", "Steve", "browser",

@@ -84,7 +84,9 @@ make server-dev          # 终端 A：H2 后端
 cd frontend/apps/web && pnpm exec playwright test e2e/deep-chat.e2e.ts
 ```
 
-e2e 覆盖：浏览器打开 nginx 同源页 → 收集一篇文章(POST /api/collect) → 等待 worker 归类/沉淀 → 簇综述生成并写入向量库 → 打开阅读页点「深聊」→ 发问 → 断言返回带 源1/源2 来源标签且 H2 落了 chat_session/chat_message。详见 `docs/plans/2026-06-17-stage5-progress.md` 的 e2e 记录。
+e2e 覆盖：浏览器打开 nginx 同源页 → 点开已就绪文章 →点「深聊」FAB → 发问 → 断言 AI 回复带 📄/🕸 来源标签;第二轮追问验证会话连续(同 sessionId,证明 H2 往返)。chat_session/chat_message 的行级落库断言由后端 `ChatPersistenceTest`/`ChatApiTest` 对同一 H2 覆盖(内存库为单 JVM,node 测试进程无法直连)。详见 `docs/plans/2026-06-17-stage5-progress.md` 的 P9 记录。
+
+> **浏览器内核**:`playwright.config.ts` 的 chromium 工程用 `channel: 'chrome'`(系统已装的 Google Chrome),不依赖 Playwright 自带内核。本机网络受限无法从 `cdn.playwright.dev` 下载自带 chromium 时,这是默认且足够的真实浏览器路径;若机器无系统 Chrome 且可联网,可改回自带内核并 `pnpm exec playwright install chromium`。
 
 ## 7. 上线切换（MySQL）
 
