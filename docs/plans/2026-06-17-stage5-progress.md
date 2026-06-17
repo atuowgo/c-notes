@@ -23,7 +23,7 @@
 | P7 | 前端接线 ChatPanel | ✅ 完成 | 2fc3c11 |
 | P8 | nginx 同源基础设施 | ✅ 完成 | 736ebb0 |
 | P9 | Playwright 真实 e2e | ✅ 完成 | be16ac7 |
-| P10 | 收尾 commit + push | ⬜ | |
+| P10 | 收尾 commit + push | ✅ 完成 | (本提交) |
 
 ## 记录
 
@@ -96,3 +96,8 @@
 - **浏览器内核**：`playwright.config.ts` chromium 工程用 `channel: 'chrome'`(系统 Chrome)。本机网络受限,`cdn.playwright.dev` 不在沙箱白名单,自带 chromium(build 1228)下载 ECONNRESET 失败;系统 Chrome 同为真实浏览器,点击/渲染/网络行为一致,满足真实 e2e。
 - **配套**：`package.json` 加 `@playwright/test` + `test:e2e` 脚本;`.gitignore` 忽略 `test-results/`、`playwright-report/`;`docs/ops/local-build-run.md` §6 更新真实链路描述与浏览器内核说明。
 - 下一步：P10 收尾——全套件绿(`./gradlew test` + `pnpm -r test` + e2e)→ 进度文档定稿 → commit + push。
+
+### 2026-06-17 — P10 收尾(全套件绿 + push)
+- **全套件验证证据(真实环境)**：① 后端 `cd server && ./gradlew test` → **BUILD SUCCESSFUL in 24s**(`:test` 执行,H2 内存库 + stub ChatModel/MockitoBean 隔离,确定性绿);② 前端 `pnpm -r test`(api-client vitest)→ **3 passed (3)**;③ 浏览器 e2e(P9)→ **1 passed**,真实穿 nginx→后端→H2→向量库→DeepSeek。三层(单测/契约/真实端到端)全绿。
+- **Stage-5 深聊收官**:P0–P10 全部 ✅。深聊三来源(📄 锚定文章+批注 / 🕸 向量检索知识网 / 🌐 联网搜索 @Tool)端到端打通,生产形态(nginx 同源 + H2→可切 MySQL + SimpleVectorStore→可切 pgvector)就绪。
+- 代码 commit 后 `git push` 推送 main。
