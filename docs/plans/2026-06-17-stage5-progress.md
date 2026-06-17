@@ -17,7 +17,7 @@
 | P1 | V3 迁移 + 实体/Mapper | ✅ 完成 | 4971c7e |
 | P2 | Ark EmbeddingModel | ✅ 完成 | 0f9e660 |
 | P3 | SimpleVectorStore + ClusterIndexer | ✅ 完成 | aad07c5 |
-| P4 | WebSearch @Tool（源3） | ⬜ | |
+| P4 | WebSearch @Tool（源3） | ✅ 完成 | (见下方记录) |
 | P5 | ChatContextAssembler（源1/2/3） | ⬜ | |
 | P6 | ChatService + ChatController | ⬜ | |
 | P7 | 前端接线 ChatPanel | ⬜ | |
@@ -53,3 +53,9 @@
 - **TDD（接线）**：`ClusterServiceTest` 加 `@MockitoBean ClusterIndexer` + `verify(clusterIndexer).index(tagId)`（RED：Wanted but not invoked）→ 在 `ClusterService.regenerate()` 综述落库后 `if (summarized) clusterIndexer.index(tagId)`（构造器注入）→ GREEN；`ClusterApiTest` 同加 `@MockitoBean ClusterIndexer` 保持离线（真实走 `/regenerate` 端点不触 Ark）。
 - **验证证据**：`./gradlew test --tests '*ClusterIndexerTest*'` 4/0/0；接线 `*ClusterServiceTest*`+`*ClusterApiTest*` BUILD SUCCESSFUL；全量 `./gradlew test` **BUILD SUCCESSFUL（19 个测试类 / 50 用例 / 0 失败 0 错误 / 2 env 门控跳过）**。向量库落盘路径 `cnotes.vectorstore.path`(默认 `./.data/vectorstore.json`)。
 - 下一步：P4 WebSearchTool `@Tool`（源3，DuckDuckGo+jsoup，优雅降级）。
+
+### 2026-06-17 — P4 WebSearchTool @Tool（源3 联网搜索，优雅降级）
+- **实现**：`WebSearchTool`（`@Component`）以 Spring AI `org.springframework.ai.tool.annotation.@Tool` 方法 `search(@ToolParam query)` 暴露给 ChatClient——本文(源1)+知识网(源2)不足时模型自行决定调用。走 DuckDuckGo HTML 版端点 `chat.websearch.base-url`(默认 `https://html.duckduckgo.com/html/`，无需 API key)，jsoup 解析 top N(`chat.websearch.top-n` 默认 3)条「标题/摘要/真实链接」；DuckDuckGo 的 `//duckduckgo.com/l/?uddg=` 跳转包装被解码回真实 URL。**优雅降级**：网络/超时/解析/空结果一律返回空串、绝不抛——源3 不可用不致整轮 chat 失败。
+- **TDD**：先写 `WebSearchToolTest`（编译失败 RED：`找不到符号 WebSearchTool`）→ 实现 → GREEN。离线 3 例:`parseResults` 固定样本断言「标题/摘要 + uddg 解码为真实链接 + topN=2 截断 + 不泄露 uddg 包装」、空/异常 HTML 降级空串、不可达 host 时 `search()` 返回空串不抛;**第 4 例 `@EnabledIfEnvironmentVariable(WEBSEARCH_LIVE=1)` 真打 DuckDuckGo**。
+- **验证证据**：`WEBSEARCH_LIVE=1 ./gradlew test --tests '*WebSearchToolTest*' --rerun-tasks` → `tests="4" skipped="0" failures="0" errors="0"`（**含真实网络往返**，源3 真打 DuckDuckGo 返回非空）；全量 `./gradlew test` BUILD SUCCESSFUL（20 个测试类 / 54 用例 / 0 失败 0 错误 / 3 env 门控跳过）。
+- 下一步：P5 ChatContextAssembler（源1 本文+批注 / 源2 知识网向量检索 / 源3 作为 tool 交给 ChatClient）。
