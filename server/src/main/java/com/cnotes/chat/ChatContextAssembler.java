@@ -40,8 +40,23 @@ public class ChatContextAssembler {
     public record ChatContext(String systemText, List<String> sources) {}
 
     public ChatContext assemble(String articleId, String question) {
+        return assemble(articleId, question, null);
+    }
+
+    public ChatContext assemble(String articleId, String question, String noteId) {
         List<String> sources = new ArrayList<>();
         StringBuilder sb = new StringBuilder();
+
+        // 源4(由「提问」带入):把某条想法作为本次提问的起点 —— 💭 我的想法
+        if (noteId != null && !noteId.isBlank()) {
+            Note seed = noteMapper.selectById(noteId);
+            if (seed != null) {
+                sources.add("💭");
+                sb.append("【我的想法(本次提问的起点)】\n");
+                if (notBlank(seed.getQuote())) sb.append("引文:「").append(seed.getQuote().trim()).append("」\n");
+                if (notBlank(seed.getThought())) sb.append("想法:").append(seed.getThought().trim()).append("\n");
+            }
+        }
 
         // 源1:本文 + 批注
         Article a = (articleId == null || articleId.isBlank()) ? null : articleMapper.selectById(articleId);

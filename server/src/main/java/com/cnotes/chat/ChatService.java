@@ -52,7 +52,7 @@ public class ChatService {
 
         ChatSession session = ensureSession(articleId, req.sessionId(), message);
 
-        ChatContextAssembler.ChatContext ctx = assembler.assemble(articleId, message);
+        ChatContextAssembler.ChatContext ctx = assembler.assemble(articleId, message, req.noteId());
 
         ChatClient.ChatClientRequestSpec spec = chatClient.prompt();
         if (ctx.systemText() != null && !ctx.systemText().isBlank()) {

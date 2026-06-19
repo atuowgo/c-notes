@@ -72,6 +72,22 @@ class ChatContextAssemblerTest {
     }
 
     @Test
+    void seedNoteAddsThoughtSourceForAsk() {
+        Article a = seedArticle();
+        seedNote(a.getId(), "小火慢炖", "关键在火候");
+        when(knowledgeRetriever.retrieve(anyString(), anyInt())).thenReturn(List.of());
+        // 取回刚插入的想法 id
+        Note seed = noteMapper.selectList(null).stream()
+            .filter(n -> "关键在火候".equals(n.getThought())).findFirst().orElseThrow();
+
+        var ctx = assembler.assemble(a.getId(), "基于这条想法继续聊", seed.getId());
+
+        assertThat(ctx.sources()).contains("💭", "📄");
+        assertThat(ctx.systemText()).contains("本次提问的起点");
+        assertThat(ctx.systemText()).contains("关键在火候");
+    }
+
+    @Test
     void missingArticleAndNoKnowledgeYieldsNoSources() {
         when(knowledgeRetriever.retrieve(anyString(), anyInt())).thenReturn(List.of());
 

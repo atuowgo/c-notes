@@ -14,6 +14,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.http.MediaType;
+
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -31,6 +33,7 @@ class ClusterApiTest {
     @Autowired ArticleMapper articleMapper;
     @Autowired ArticleTagMapper articleTagMapper;
     @MockitoBean ClusterSummarizer summarizer;
+    @MockitoBean ClusterSuggester suggester;
     @MockitoBean com.cnotes.chat.vector.ClusterIndexer clusterIndexer;   // 隔离 Ark 网络
 
     private String seedDone(String title) {
@@ -79,5 +82,79 @@ class ClusterApiTest {
     @Test
     void detailMissingReturns404() throws Exception {
         mvc.perform(get("/api/clusters/" + "0".repeat(32))).andExpect(status().isNotFound());
+    }
+
+    private String link(String articleId, String tagId) {
+        ArticleTag t = new ArticleTag(); t.setArticleId(articleId); t.setTagId(tagId);
+        articleTagMapper.insert(t);
+        return articleId;
+    }
+
+    @Test
+    void moveArticleEndpointMovesMembership() throws Exception {
+        Tag from = new Tag(); from.setName("移源-" + java.util.UUID.randomUUID()); tagMapper.insert(from);
+        Tag to = new Tag(); to.setName("移标-" + java.util.UUID.randomUUID()); tagMapper.insert(to);
+        String a = link(seedDone("待移"), from.getId());
+
+        mvc.perform(post("/api/clusters/" + from.getId() + "/move-article")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"articleId\":\"" + a + "\",\"toClusterId\":\"" + to.getId() + "\"}"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.id", is(to.getId())))
+           .andExpect(jsonPath("$.articles[*].id", hasItem(a)));
+    }
+
+    @Test
+    void mergeEndpointArchivesSourceAndHidesIt() throws Exception {
+        Tag from = new Tag(); from.setName("并源-" + java.util.UUID.randomUUID()); tagMapper.insert(from);
+        Tag to = new Tag(); to.setName("并标-" + java.util.UUID.randomUUID()); tagMapper.insert(to);
+        String a = link(seedDone("并文"), from.getId());
+
+        mvc.perform(post("/api/clusters/merge")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"fromId\":\"" + from.getId() + "\",\"toId\":\"" + to.getId() + "\"}"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.id", is(to.getId())))
+           .andExpect(jsonPath("$.articles[*].id", hasItem(a)));
+
+        // 列表不含归档的源簇
+        mvc.perform(get("/api/clusters"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$[*].id", not(hasItem(from.getId()))));
+    }
+
+    @Test
+    void splitEndpointCreatesNewCluster() throws Exception {
+        Tag source = new Tag(); source.setName("拆源-" + java.util.UUID.randomUUID()); tagMapper.insert(source);
+        String a1 = link(seedDone("拆甲"), source.getId());
+        link(seedDone("拆乙"), source.getId());
+        String newName = "拆新-" + java.util.UUID.randomUUID();
+
+        mvc.perform(post("/api/clusters/split")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"sourceId\":\"" + source.getId() + "\",\"name\":\"" + newName
+                    + "\",\"articleIds\":[\"" + a1 + "\"]}"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.name", is(newName)))
+           .andExpect(jsonPath("$.articles[*].id", hasItem(a1)));
+    }
+
+    @Test
+    void acceptSuggestionEndpointCreatesCluster() throws Exception {
+        String a1 = seedDone("采1"); String a2 = seedDone("采2");
+        String name = "采纳-" + java.util.UUID.randomUUID();
+
+        mvc.perform(post("/api/clusters/accept-suggestion")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"" + name + "\",\"articleIds\":[\"" + a1 + "\",\"" + a2 + "\"]}"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.name", is(name)))
+           .andExpect(jsonPath("$.articles[*].id", hasItem(a1)));
+    }
+
+    @Test
+    void suggestionsEndpointReturnsOk() throws Exception {
+        mvc.perform(get("/api/clusters/suggestions"))
+           .andExpect(status().isOk());
     }
 }

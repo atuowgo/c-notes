@@ -13,6 +13,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.cnotes.chat.vector.ClusterIndexer;
+import com.cnotes.tag.mapper.TagMergeMapper;
+import com.cnotes.tag.entity.TagMerge;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,7 +32,9 @@ class ClusterServiceTest {
     @Autowired TagMapper tagMapper;
     @Autowired ArticleMapper articleMapper;
     @Autowired ArticleTagMapper articleTagMapper;
+    @Autowired TagMergeMapper tagMergeMapper;
     @MockitoBean ClusterSummarizer summarizer;
+    @MockitoBean ClusterSuggester suggester;
     @MockitoBean ClusterIndexer clusterIndexer;   // 隔离 Ark 网络:断言综述写入后触发向量索引
 
     private String seedDoneArticle(String title) {
@@ -88,5 +95,81 @@ class ClusterServiceTest {
         link(seedDoneArticle("独苗"), tag.getId());
         // 仅 1 篇 < min(2),不应进入待写综述
         assertThat(clusterService.staleClusterTagIds()).doesNotContain(tag.getId());
+    }
+
+    private Tag newTag(String label) {
+        Tag t = new Tag(); t.setName(label + "-" + java.util.UUID.randomUUID());
+        tagMapper.insert(t);
+        return t;
+    }
+
+    @Test
+    void moveArticleMovesMembershipToTarget() {
+        Tag from = newTag("源簇");
+        Tag to = newTag("目标簇");
+        String a = seedDoneArticle("被移文章");
+        link(a, from.getId());
+
+        var target = clusterService.moveArticle(from.getId(), a, to.getId());
+
+        assertThat(target.getId()).isEqualTo(to.getId());
+        assertThat(target.getArticles()).extracting("id").contains(a);
+        assertThat(clusterService.detail(from.getId()).getArticles()).isEmpty();
+    }
+
+    @Test
+    void mergeRetagsArchivesSourceAndWritesMergeRow() {
+        Tag from = newTag("待并源簇");
+        Tag to = newTag("并入目标簇");
+        String a1 = seedDoneArticle("甲"); String a2 = seedDoneArticle("乙");
+        link(a1, from.getId());
+        link(a2, to.getId());
+
+        var target = clusterService.merge(from.getId(), to.getId());
+
+        // 成员合并到 to
+        assertThat(target.getArticles()).extracting("id").contains(a1, a2);
+        // 源簇 article_tag 清空
+        assertThat(articleTagMapper.selectList(
+            Wrappers.<ArticleTag>lambdaQuery().eq(ArticleTag::getTagId, from.getId()))).isEmpty();
+        // 源簇归档,列表隐藏
+        assertThat(tagMapper.selectById(from.getId()).getArchived()).isTrue();
+        assertThat(clusterService.listClusters()).extracting("id").doesNotContain(from.getId());
+        // tag_merge 重定向行写入
+        assertThat(tagMergeMapper.selectList(
+            Wrappers.<TagMerge>lambdaQuery().eq(TagMerge::getFromTagId, from.getId()))).hasSize(1);
+    }
+
+    @Test
+    void splitCreatesNewClusterWithArticles() {
+        Tag source = newTag("大簇");
+        String a1 = seedDoneArticle("拆1"); String a2 = seedDoneArticle("拆2");
+        link(a1, source.getId()); link(a2, source.getId());
+
+        String newName = "拆出的新簇-" + java.util.UUID.randomUUID();
+        var created = clusterService.split(source.getId(), newName, List.of(a1));
+
+        assertThat(created.getName()).isEqualTo(newName);
+        assertThat(created.getArticles()).extracting("id").containsExactly(a1);
+        // a1 从源簇移除,a2 仍在
+        assertThat(clusterService.detail(source.getId()).getArticles())
+            .extracting("id").containsExactly(a2);
+    }
+
+    @Test
+    void acceptSuggestionCreatesCluster() {
+        String a1 = seedDoneArticle("建议1"); String a2 = seedDoneArticle("建议2");
+        String name = "采纳簇-" + java.util.UUID.randomUUID();
+
+        var created = clusterService.acceptSuggestion(name, List.of(a1, a2));
+
+        assertThat(created.getName()).isEqualTo(name);
+        assertThat(created.getArticles()).extracting("id").contains(a1, a2);
+    }
+
+    @Test
+    void suggestionsEmptyWhenTooFewArticles() {
+        // <3 篇 done 时不调用 LLM,直接空
+        assertThat(clusterService.suggestions()).isEmpty();
     }
 }

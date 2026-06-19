@@ -14,6 +14,7 @@ public class Tag {
     private String livingSummary;          // 演进式综述(知识网 V3)
     private Integer summaryMemberCount;     // 上次生成综述时的成员文章数
     private LocalDateTime summaryUpdatedAt;
+    private Boolean archived;               // 合并后的源簇归档(纠偏 V5)
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)

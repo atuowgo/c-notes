@@ -57,7 +57,7 @@ public class ArticleQueryService {
     }
 
     /** 批量查若干文章的标签名,按 article_id 聚合(读已有 article_tag/tag,不触碰归类写入)。 */
-    private Map<String, List<String>> tagsByArticle(List<String> articleIds) {
+    public Map<String, List<String>> tagsByArticle(List<String> articleIds) {
         if (articleIds.isEmpty()) return Map.of();
         List<ArticleTag> links = articleTagMapper.selectList(
             Wrappers.<ArticleTag>lambdaQuery().in(ArticleTag::getArticleId, articleIds));
@@ -78,7 +78,7 @@ public class ArticleQueryService {
         catch (Exception e) { return List.of(); }
     }
 
-    private ArticleCardDto toCard(Article a, List<String> tags) {
+    public ArticleCardDto toCard(Article a, List<String> tags) {
         ArticleCardDto c = new ArticleCardDto();
         c.setId(a.getId()); c.setTitle(a.getTitle()); c.setAuthor(a.getAuthor());
         c.setSourceType(a.getSourceType()); c.setSummary(a.getSummary());

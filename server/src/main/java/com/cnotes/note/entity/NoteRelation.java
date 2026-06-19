@@ -1,19 +1,18 @@
-package com.cnotes.tag.entity;
+package com.cnotes.note.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("article_tag")
-public class ArticleTag {
+@TableName("note_relation")
+public class NoteRelation {
     @TableId(type = IdType.ASSIGN_UUID)
     private String id;
-    private String articleId;
-    private String tagId;
-    private BigDecimal confidence;
-    private String source;   // 'ai' 自动归类 / 'user' 用户钉选(纠偏 V5)
+    private String fromNoteId;
+    private String toNoteId;
+    private String relationType;   // 呼应/对立/延伸/同主题/同篇
+    private String reason;
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)

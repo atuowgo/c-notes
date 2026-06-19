@@ -64,6 +64,14 @@ public class NoteService {
         return noteMapper.deleteById(id) > 0;
     }
 
+    /** 把若干 Note 装配成带文章标题的 DTO(供关联/创作等复用)。 */
+    public List<NoteDto> toDtos(List<Note> notes) {
+        if (notes.isEmpty()) return List.of();
+        Map<String, String> titles =
+            titlesFor(notes.stream().map(Note::getArticleId).distinct().toList());
+        return notes.stream().map(n -> toDto(n, titles)).toList();
+    }
+
     private Map<String, String> titlesFor(List<String> articleIds) {
         if (articleIds.isEmpty()) return Map.of();
         return articleMapper.selectList(Wrappers.<Article>lambdaQuery()
