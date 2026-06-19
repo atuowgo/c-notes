@@ -5,10 +5,14 @@ import type {
   ChatRequest,
   ClusterCard,
   ClusterDetail,
+  ClusterSuggestion,
   CollectRequest,
   CollectResponse,
+  ComposeReply,
   CreateNoteRequest,
   Note,
+  RelatedArticle,
+  RelatedNote,
   UpdateNoteRequest,
 } from '@cnotes/types';
 
@@ -31,11 +35,24 @@ export interface CnotesClient {
   createNote(req: CreateNoteRequest): Promise<Note>;
   updateNote(id: string, req: UpdateNoteRequest): Promise<Note>;
   deleteNote(id: string): Promise<void>;
+  /** 文章关联:「顺着这篇继续探索」——后端 LLM/标签近邻给出「为什么相关」 */
+  listRelated(articleId: string): Promise<RelatedArticle[]>;
   /** 知识网:主题簇列表 / 详情 / 重写综述 */
   listClusters(): Promise<ClusterCard[]>;
   getCluster(id: string): Promise<ClusterDetail>;
   regenerateCluster(id: string): Promise<ClusterDetail>;
-  /** 深聊:围绕锚定文章发起/续接一轮对话;sessionId 为空则后端新建会话 */
+  /** 知识网纠偏:移动文章到别的簇 / 合并簇 / 拆分出新簇 */
+  moveArticleToCluster(clusterId: string, articleId: string, toClusterId: string): Promise<ClusterDetail>;
+  mergeClusters(fromId: string, toId: string): Promise<ClusterDetail>;
+  splitCluster(sourceId: string, name: string, articleIds: string[]): Promise<ClusterDetail>;
+  /** 知识网纠偏:LLM 建议的新主题簇 / 一键接受 */
+  listClusterSuggestions(): Promise<ClusterSuggestion[]>;
+  acceptClusterSuggestion(name: string, articleIds: string[]): Promise<ClusterDetail>;
+  /** 想法关联:某条想法的「相关想法」 */
+  listRelatedNotes(noteId: string): Promise<RelatedNote[]>;
+  /** 创作:把若干想法拼装为草稿 */
+  compose(noteIds: string[], topic?: string): Promise<ComposeReply>;
+  /** 深聊:围绕锚定文章发起/续接一轮对话;sessionId 为空则后端新建会话;noteId 由「提问」带入 */
   chat(articleId: string, req: ChatRequest): Promise<ChatReply>;
 }
 
@@ -88,12 +105,38 @@ export function createClient(baseUrl = ''): CnotesClient {
     deleteNote: (id) =>
       request<void>(`/api/notes/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
+    listRelated: (id) =>
+      request<RelatedArticle[]>(`/api/articles/${encodeURIComponent(id)}/related`),
+
     listClusters: () => request<ClusterCard[]>('/api/clusters'),
 
     getCluster: (id) => request<ClusterDetail>(`/api/clusters/${encodeURIComponent(id)}`),
 
     regenerateCluster: (id) =>
       request<ClusterDetail>(`/api/clusters/${encodeURIComponent(id)}/regenerate`, { method: 'POST' }),
+
+    moveArticleToCluster: (clusterId, articleId, toClusterId) =>
+      request<ClusterDetail>(
+        `/api/clusters/${encodeURIComponent(clusterId)}/move-article`,
+        jsonBody('POST', { articleId, toClusterId }),
+      ),
+
+    mergeClusters: (fromId, toId) =>
+      request<ClusterDetail>('/api/clusters/merge', jsonBody('POST', { fromId, toId })),
+
+    splitCluster: (sourceId, name, articleIds) =>
+      request<ClusterDetail>('/api/clusters/split', jsonBody('POST', { sourceId, name, articleIds })),
+
+    listClusterSuggestions: () => request<ClusterSuggestion[]>('/api/clusters/suggestions'),
+
+    acceptClusterSuggestion: (name, articleIds) =>
+      request<ClusterDetail>('/api/clusters/accept-suggestion', jsonBody('POST', { name, articleIds })),
+
+    listRelatedNotes: (id) =>
+      request<RelatedNote[]>(`/api/notes/${encodeURIComponent(id)}/related`),
+
+    compose: (noteIds, topic) =>
+      request<ComposeReply>('/api/compose', jsonBody('POST', { noteIds, topic })),
 
     chat: (id, req) =>
       request<ChatReply>(`/api/articles/${encodeURIComponent(id)}/chat`, jsonBody('POST', req)),

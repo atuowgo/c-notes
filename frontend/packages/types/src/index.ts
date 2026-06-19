@@ -95,10 +95,37 @@ export interface ClusterDetail {
 /** 深聊角色:与后端 chat_message.role 对齐 */
 export type ChatRole = 'user' | 'assistant';
 
-/** 深聊一轮请求:用户消息 + 可选续聊会话 id(为空则后端新建会话) */
+/** 深聊一轮请求:用户消息 + 可选续聊会话 id(为空则后端新建会话) + 可选锚定想法(由「提问」发起,作为第四层来源 💭 我的想法) */
 export interface ChatRequest {
   message: string;
   sessionId?: string;
+  noteId?: string;
+}
+
+/** 文章关联:一条「为什么相关」的连线(同概念 / 互补 / 对立 / 延伸) */
+export interface RelatedArticle {
+  article: ArticleCard;
+  relationType: string;
+  reason: string;
+}
+
+/** 知识网纠偏:LLM 建议的新主题簇(尚未落库,用户可一键接受) */
+export interface ClusterSuggestion {
+  name: string;
+  reason: string;
+  articles: ArticleCard[];
+}
+
+/** 想法关联:一条想法↔想法的连线(呼应 / 对立 / 延伸 / 同主题) */
+export interface RelatedNote {
+  note: Note;
+  relationType: string;
+  reason: string;
+}
+
+/** 创作:由若干想法拼装出的草稿 */
+export interface ComposeReply {
+  draft: string;
 }
 
 /** 深聊一轮回复:会话 id + 助手回复 + 本轮实际启用的源标签(📄 本文 / 🕸 知识网 / 🌐 联网) */

@@ -54,4 +54,5 @@ venv/
 target/
 
 # ---- Claude / tooling local state ----
+.claude/
 .claude/settings.local.json
