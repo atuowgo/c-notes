@@ -56,3 +56,7 @@ target/
 # ---- Claude / tooling local state ----
 .claude/
 .claude/settings.local.json
+
+# Capacitor 生成的原生工程(可由 npx cap add android 重建)
+frontend/apps/mobile/android/
+frontend/apps/mobile/ios/
