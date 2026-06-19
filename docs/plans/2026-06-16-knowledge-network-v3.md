@@ -24,9 +24,9 @@
 
 收两篇 LLM 主题文章(《Attention Is All You Need》+《Retrieval-augmented generation》)→ 均归入「LLM 推理优化」簇(2 篇)→ 后台 worker 自动织出综述:把 Transformer 与 RAG 串成"模型内在效率提升"与"外部知识注入"两条并行互补路径的连贯概览。`GET /api/clusters/{id}` 正确返回综述 + 成员。
 
-## 待后续
+## 待后续(2026-06-19 更新:大部分已完成,见 `2026-06-19-v3-v4-completion.md`)
 
-- **关联(Link)**:article↔article「为什么相关」(引用同概念/观点对立/互补);现仅有阅读端"同标签近邻"推荐。
-- **embedding 聚类**:超越受控标签、按语义自动聚簇(需 embedding 模型)。
-- **纠偏**:用户合并/拆分簇、把文章拖到别的簇,系统记住偏好(§3 的"自动为主 + 可轻量纠偏")。
-- **移动端**:V3 的另一半(Capacitor 包壳 web),未开始。
+- **关联(Link)**:✅ 已完成。`relation` 包 `GET /api/articles/{id}/related`,LLM 选「为什么相关」(同概念/互补/对立/延伸)+ 共享标签兜底;阅读页「顺着这篇继续探索」展示。
+- **纠偏**:✅ 已完成。移动文章到别的簇 / 合并簇 / 拆分 / LLM 建议新簇并一键采纳;`article_tag.source` 记录用户钉选,`tag.archived` + `tag_merge` 重定向,`TagClassifier` 跟随合并、保留用户钉选。
+- **移动端**:✅ 已搭好包壳。`apps/mobile`(Capacitor)复用 web dist;`cap add android` + `cap sync` 通过,移动视口 e2e 通过。真机构建需 Android SDK(见 `docs/ops/mobile-capacitor.md`)。
+- **embedding 语义自动聚簇**:部分。建议簇当前用 **LLM**(本环境无 embedding provider key);embedding 路径经 `EmbeddingModel` 抽象保留,配 `ARK_API_KEY` 即生效。纯向量自动聚类仍可作后续增强。
