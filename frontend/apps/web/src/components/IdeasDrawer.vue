@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { notes, removeNote } from '../notes';
-import type { Note } from '@cnotes/types';
+import type { Note, RelatedNote } from '@cnotes/types';
 import { relTime } from '../format';
-import { toast } from '../toast';
+import { askFromNote } from '../chat';
+import { api } from '../api';
 
 const props = defineProps<{ scope: 'article' | 'all'; articleId?: string }>();
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; compose: [noteId: string] }>();
 
 const q = ref('');
 
@@ -22,6 +23,33 @@ const list = computed<Note[]>(() => {
       n.quote.toLowerCase().includes(kw) || (n.thought ?? '').toLowerCase().includes(kw),
   );
 });
+
+function ask(n: Note) {
+  askFromNote(n);
+  emit('close');
+}
+
+/* ---------- 相关想法(批注↔批注) ---------- */
+const openRel = ref<string | null>(null);
+const relCache = ref<Record<string, RelatedNote[]>>({});
+const relLoading = ref<string | null>(null);
+
+async function toggleRelated(n: Note) {
+  if (openRel.value === n.id) {
+    openRel.value = null;
+    return;
+  }
+  openRel.value = n.id;
+  if (relCache.value[n.id]) return;
+  relLoading.value = n.id;
+  try {
+    relCache.value[n.id] = await api.listRelatedNotes(n.id);
+  } catch {
+    relCache.value[n.id] = [];
+  } finally {
+    relLoading.value = null;
+  }
+}
 </script>
 
 <template>
@@ -48,12 +76,28 @@ const list = computed<Note[]>(() => {
         <div v-if="scope === 'all'" class="note-art">↳ {{ n.articleTitle || '(未命名)' }}</div>
         <div class="note-time">{{ relTime(n.createTime) }}</div>
         <div class="note-actions">
-          <button @click="toast('规划中:把这条想法作为提问起点,和 AI 深聊')">💬 提问</button>
-          <button @click="toast('规划中:基于这条想法生成创作草稿')">✍ 创作</button>
+          <button @click="ask(n)">💬 提问</button>
+          <button @click="emit('compose', n.id)">✍ 创作</button>
+          <button :class="{ on: openRel === n.id }" @click="toggleRelated(n)">🔗 相关</button>
           <button class="del" @click="removeNote(n.id)">🗑 删除</button>
+        </div>
+
+        <div v-if="openRel === n.id" class="note-rel">
+          <div v-if="relLoading === n.id" class="note-rel-empty">寻找相关想法…</div>
+          <template v-else-if="relCache[n.id] && relCache[n.id].length">
+            <div v-for="r in relCache[n.id]" :key="r.note.id" class="rel-item">
+              <span class="rel-kind">{{ r.relationType }}</span>
+              <div class="rel-body">
+                <p class="rq">"{{ r.note.quote }}"</p>
+                <p v-if="r.note.thought" class="rt">{{ r.note.thought }}</p>
+                <p class="rr">{{ r.reason }}</p>
+              </div>
+            </div>
+          </template>
+          <div v-else class="note-rel-empty">暂无相关想法。</div>
         </div>
       </div>
     </div>
-    <div class="drawer-foot">后续:可基于任意一条想法发起 <b>提问</b> 或 <b>创作</b>(规划中)</div>
+    <div class="drawer-foot">由想法可发起 <b>提问</b>(进深聊)或 <b>创作</b>(拼装草稿),并查看 <b>相关想法</b></div>
   </div>
 </template>

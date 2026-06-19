@@ -2,6 +2,7 @@
 import { ref, computed, watch, nextTick } from 'vue';
 import { api } from '../api';
 import { ApiError } from '@cnotes/api-client';
+import { askIntent } from '../chat';
 
 // AI 深聊入口(§6.5):围绕锚定文章发起一轮对话,后端三源(本文/知识网/联网)综合回答。
 const props = defineProps<{ articleId?: string | null; articleTitle?: string | null }>();
@@ -41,21 +42,25 @@ function openChat() {
   scrollDown();
 }
 
-async function send() {
+function send() {
   const v = input.value.trim();
-  if (!v || sending.value) return;
-  const articleId = props.articleId;
+  if (!v) return;
+  input.value = '';
+  void sendMessage(v, props.articleId ?? undefined);
+}
+
+async function sendMessage(text: string, articleId?: string, noteId?: string) {
+  if (!text || sending.value) return;
   if (!articleId) {
     messages.value.push({ role: 'ai', text: '请先打开一篇文章,再开始深聊。' });
     scrollDown();
     return;
   }
-  messages.value.push({ role: 'me', text: v });
-  input.value = '';
+  messages.value.push({ role: 'me', text });
   sending.value = true;
   scrollDown();
   try {
-    const reply = await api.chat(articleId, { message: v, sessionId: sessionId.value });
+    const reply = await api.chat(articleId, { message: text, sessionId: sessionId.value, noteId });
     sessionId.value = reply.sessionId;
     messages.value.push({ role: 'ai', text: reply.reply, srcs: reply.sources });
   } catch (e) {
@@ -75,6 +80,16 @@ watch(
     if (!props.articleTitle) onArticleCtx.value = false;
   },
 );
+
+// 「提问」意图:从想法抽屉发起 —— 打开面板、锚定该想法的文章、带 noteId 直接发问。
+watch(askIntent, (intent) => {
+  if (!intent) return;
+  openChat();
+  onArticleCtx.value = true;
+  sessionId.value = undefined;
+  void sendMessage(intent.question, intent.articleId, intent.noteId);
+  askIntent.value = null;
+});
 </script>
 
 <template>

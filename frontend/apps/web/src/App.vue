@@ -8,6 +8,7 @@ import ClusterDetailView from './views/ClusterDetailView.vue';
 import CollectModal from './components/CollectModal.vue';
 import ChatPanel from './components/ChatPanel.vue';
 import IdeasDrawer from './components/IdeasDrawer.vue';
+import ComposeModal from './components/ComposeModal.vue';
 import Toast from './components/Toast.vue';
 import { loadNotes } from './notes';
 
@@ -19,7 +20,12 @@ const openId = ref<string | null>(null); // 文章阅读器,优先级最高
 const currentArticle = ref<ArticleDetail | null>(null);
 const collectOpen = ref(false);
 const drawer = ref<{ scope: 'article' | 'all' } | null>(null);
+const composeNoteIds = ref<string[] | null>(null);
 const inbox = useTemplateRef<InstanceType<typeof InboxView>>('inbox');
+
+function openCompose(noteId: string) {
+  composeNoteIds.value = [noteId];
+}
 
 function openReader(id: string) {
   openId.value = id;
@@ -38,7 +44,8 @@ function go(t: Tab) {
 
 function onKey(e: KeyboardEvent) {
   if (e.key !== 'Escape') return;
-  if (drawer.value) drawer.value = null;
+  if (composeNoteIds.value) composeNoteIds.value = null;
+  else if (drawer.value) drawer.value = null;
   else if (collectOpen.value) collectOpen.value = false;
   else if (openId.value) closeReader();
   else if (openClusterId.value) openClusterId.value = null;
@@ -96,6 +103,12 @@ onUnmounted(() => document.removeEventListener('keydown', onKey));
     :scope="drawer.scope"
     :article-id="openId ?? undefined"
     @close="drawer = null"
+    @compose="openCompose"
+  />
+  <ComposeModal
+    :open="composeNoteIds !== null"
+    :note-ids="composeNoteIds ?? []"
+    @close="composeNoteIds = null"
   />
   <Toast />
 </template>
