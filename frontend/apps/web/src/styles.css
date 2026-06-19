@@ -287,7 +287,7 @@ mark.hl:hover { background: linear-gradient(180deg, transparent 55%, #ffd47e 55%
 .rel-body .rr { font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; }
 
 /* 创作弹窗 */
-.compose-box { max-width: 520px; }
+.compose-box { max-width: 520px; max-height: 86vh; overflow-y: auto; }
 .compose-seeds-label { font-size: 13px; color: var(--ink-soft); margin: 4px 0 6px; }
 .compose-seeds { max-height: 150px; overflow: auto; margin-bottom: 12px; }
 .compose-seed { font-size: 13px; padding: 6px 0; border-bottom: 1px dashed var(--line); }

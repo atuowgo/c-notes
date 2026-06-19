@@ -89,7 +89,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKey));
   />
   <!-- 主视图 -->
   <template v-else>
-    <InboxView v-show="tab === 'inbox'" ref="inbox" @open="openReader" />
+    <InboxView v-if="tab === 'inbox'" ref="inbox" @open="openReader" />
     <ClustersView v-if="tab === 'clusters'" @open="openClusterId = $event" />
   </template>
 

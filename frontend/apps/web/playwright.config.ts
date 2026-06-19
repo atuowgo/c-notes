@@ -24,9 +24,15 @@ export default defineConfig({
     actionTimeout: 15_000,
   },
   projects: [
-    // 用系统安装的 Google Chrome(channel: 'chrome')而非 Playwright 自带 chromium:
-    // 本机网络受限无法从 cdn.playwright.dev 拉取自带内核,系统 Chrome 同为真实浏览器,
-    // 真实点击/渲染/网络行为一致,满足「真实端到端」要求。
-    { name: 'chromium', use: { ...devices['Desktop Chrome'], channel: 'chrome' } },
+    // Playwright 自带 chromium(`pnpm exec playwright install chromium`)。root 容器下加
+    // --no-sandbox。真实浏览器内核,真实点击/渲染/网络行为,满足「真实端到端」要求。
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: undefined,
+        launchOptions: { args: ['--no-sandbox', '--disable-dev-shm-usage'] },
+      },
+    },
   ],
 });
