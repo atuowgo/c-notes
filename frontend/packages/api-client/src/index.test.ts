@@ -116,6 +116,11 @@ describe('CnotesClient V3/V4 endpoints', () => {
     expect(lastCall()[0]).toBe('/api/clusters/suggestions');
   });
 
+  it('listVectorClusterSuggestions GETs /api/clusters/vector-suggestions', async () => {
+    await createClient('').listVectorClusterSuggestions();
+    expect(lastCall()[0]).toBe('/api/clusters/vector-suggestions');
+  });
+
   it('acceptClusterSuggestion POSTs name + articleIds', async () => {
     await createClient('').acceptClusterSuggestion('新簇', ['a1']);
     const [url, init] = lastCall();

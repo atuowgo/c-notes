@@ -349,6 +349,7 @@ mark.hl:hover { background: linear-gradient(180deg, transparent 55%, #ffd47e 55%
   color: var(--gold); cursor: pointer;
 }
 .suggest-btn:disabled { opacity: .55; cursor: default; }
+.suggest-btn.vec { margin-right: 8px; border-color: #6a8caf; background: #eef3f8; color: #3a6390; }
 .card.suggestion { border: 1px dashed var(--gold); background: linear-gradient(180deg, #fffdf8, var(--surface)); }
 .accept-btn {
   flex: none; font-size: 12.5px; padding: 4px 12px; border: none; border-radius: 8px;

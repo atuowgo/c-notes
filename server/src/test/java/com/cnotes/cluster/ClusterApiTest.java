@@ -16,8 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.http.MediaType;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -35,6 +37,7 @@ class ClusterApiTest {
     @MockitoBean ClusterSummarizer summarizer;
     @MockitoBean ClusterSuggester suggester;
     @MockitoBean com.cnotes.chat.vector.ClusterIndexer clusterIndexer;   // 隔离 Ark 网络
+    @MockitoBean org.springframework.ai.embedding.EmbeddingModel embeddingModel;  // 隔离 Ark 网络
 
     private String seedDone(String title) {
         String h = java.util.UUID.randomUUID().toString().replace("-", "");
@@ -156,5 +159,78 @@ class ClusterApiTest {
     void suggestionsEndpointReturnsOk() throws Exception {
         mvc.perform(get("/api/clusters/suggestions"))
            .andExpect(status().isOk());
+    }
+
+    /**
+     * 标记法 embed 桩:仅含本测试唯一标记的文章给同一向量(必聚簇),其余按文本散列给互不相近的
+     * 高维向量(不会与目标簇混在一起)—— 隔离共享 H2 里其它测试遗留的 done 文章。
+     */
+    private void stubEmbeddingWithMarker(String marker) {
+        when(embeddingModel.embed(anyString())).thenAnswer(inv -> {
+            String text = inv.getArgument(0);
+            if (text.contains(marker)) return new float[]{1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f};
+            return hashVector(text);   // 互不相近、与 {1,0,...} 也不相近
+        });
+    }
+
+    /** 由文本散列出一个 8 维伪随机单位向量;不同文本几乎正交,余弦距离 ~1。 */
+    private static float[] hashVector(String s) {
+        java.util.Random r = new java.util.Random(s.hashCode());
+        float[] v = new float[8];
+        v[0] = 0f;                                   // 首维置 0,远离标记向量 {1,0,...}
+        for (int i = 1; i < v.length; i++) v[i] = r.nextFloat() + 0.01f;
+        return v;
+    }
+
+    @SuppressWarnings("unchecked")
+    private java.util.List<java.util.Map<String, Object>> groupsContaining(String body, String articleId) {
+        java.util.List<java.util.Map<String, Object>> all =
+            com.jayway.jsonpath.JsonPath.read(body, "$");
+        java.util.List<java.util.Map<String, Object>> out = new java.util.ArrayList<>();
+        for (var g : all) {
+            java.util.List<String> ids =
+                com.jayway.jsonpath.JsonPath.read(g, "$.articles[*].id");
+            if (ids.contains(articleId)) out.add((java.util.Map<String, Object>) g);
+        }
+        return out;
+    }
+
+    @Test
+    void vectorSuggestionsClustersSemanticallyCloseArticles() throws Exception {
+        String marker = "VEC" + java.util.UUID.randomUUID().toString().replace("-", "");
+        String a1 = seedDone(marker + " 向量检索入门");
+        String a2 = seedDone(marker + " 向量数据库实践");
+        seedDone("园艺与多肉养护无关篇");          // 散列向量 → 噪声
+        stubEmbeddingWithMarker(marker);
+
+        String body = mvc.perform(get("/api/clusters/vector-suggestions"))
+           .andExpect(status().isOk())
+           .andReturn().getResponse().getContentAsString();
+
+        // 存在一个建议簇同时包含 a1 与 a2(与共享库里其它文章无关,断言只针对我的两篇)。
+        var groups = groupsContaining(body, a1);
+        assertThat(groups).hasSize(1);
+        java.util.List<String> ids = com.jayway.jsonpath.JsonPath.read(groups.get(0), "$.articles[*].id");
+        assertThat(ids).contains(a2);
+        String name = com.jayway.jsonpath.JsonPath.read(groups.get(0), "$.name");
+        assertThat(name).isNotBlank();
+    }
+
+    @Test
+    void vectorSuggestionsSkipsGroupsAlreadyCoveredByATag() throws Exception {
+        String marker = "GNN" + java.util.UUID.randomUUID().toString().replace("-", "");
+        String a1 = seedDone(marker + " 图神经网络综述");
+        String a2 = seedDone(marker + " 图神经网络应用");
+        Tag tag = new Tag(); tag.setName("GNN-" + java.util.UUID.randomUUID()); tagMapper.insert(tag);
+        link(a1, tag.getId()); link(a2, tag.getId());
+        stubEmbeddingWithMarker(marker);
+
+        String body = mvc.perform(get("/api/clusters/vector-suggestions"))
+           .andExpect(status().isOk())
+           .andReturn().getResponse().getContentAsString();
+
+        // a1、a2 已同挂一个受控标签 → 不应作为新建议出现。
+        assertThat(groupsContaining(body, a1)).isEmpty();
+        assertThat(groupsContaining(body, a2)).isEmpty();
     }
 }

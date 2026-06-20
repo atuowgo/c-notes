@@ -47,11 +47,24 @@ public class ClusterService {
     private final ClusterSummarizer summarizer;
     private final ClusterSuggester suggester;
     private final com.cnotes.chat.vector.ClusterIndexer clusterIndexer;
+    private final VectorClusterer vectorClusterer;
+    private final org.springframework.ai.embedding.EmbeddingModel embeddingModel;
     private final ObjectMapper om;
 
     /** 少于此成员数不生成综述(单篇不构成"簇")。 */
     @Value("${cluster.min-members:2}")
     private int minMembers;
+
+    /**
+     * 纯向量聚簇 DBSCAN 的余弦距离半径(越小越严格)。默认 0.45 由真实 Ark 2048 维 embedding
+     * 实测标定:同主题文章余弦距离约 0.4~0.5,跨主题约 0.8,取 0.45 可聚同主题、隔跨主题。
+     */
+    @Value("${cluster.vector.eps:0.45}")
+    private double vectorEps;
+
+    /** 纯向量聚簇 DBSCAN 的最小成员数(一个簇至少几篇)。 */
+    @Value("${cluster.vector.min-pts:2}")
+    private int vectorMinPts;
 
     public List<ClusterCardDto> listClusters() {
         Map<String, Integer> counts = doneCountByTag();
@@ -204,6 +217,102 @@ public class ClusterService {
         }
     }
 
+    /**
+     * 纯向量自动聚簇:对 done 文章的内容 embedding 跑 DBSCAN(余弦距离),把语义相近、却<b>尚未被
+     * 同一受控标签覆盖</b>的文章聚成新主题建议。不依赖 LLM —— 名称由簇内标题的高频词启发式生成。
+     * 任何异常(无 embedding key/网络/样本不足)优雅降级为空列表。
+     */
+    public List<ClusterSuggestionDto> vectorSuggestions() {
+        try {
+            List<Article> done = articleMapper.selectList(Wrappers.<Article>lambdaQuery()
+                .eq(Article::getStatus, "done").orderByDesc(Article::getCreateTime));
+            if (done.size() < vectorMinPts) return List.of();
+
+            // 1) 逐篇向量化(标题 + 摘要),与文章列表对齐。
+            List<float[]> vectors = new ArrayList<>(done.size());
+            for (Article a : done) {
+                String text = (nz(a.getTitle()) + "\n" + nz(a.getSummary())).trim();
+                vectors.add(embeddingModel.embed(text));
+            }
+
+            // 2) DBSCAN 聚簇。
+            List<List<Integer>> groups = vectorClusterer.dbscan(vectors, vectorEps, vectorMinPts);
+            if (groups.isEmpty()) return List.of();
+
+            // 3) 已被「同一受控标签」覆盖的组跳过(那已经是个簇,不必再建议)。
+            List<ClusterSuggestionDto> out = new ArrayList<>();
+            for (List<Integer> g : groups) {
+                List<Article> members = g.stream().map(done::get).toList();
+                if (members.size() < vectorMinPts) continue;
+                if (shareCommonActiveTag(members)) continue;
+
+                String name = nameFromTitles(members);
+                ClusterSuggestionDto dto = new ClusterSuggestionDto();
+                dto.setName(name);
+                dto.setReason("按文章内容向量聚类(DBSCAN)发现:这 " + members.size() + " 篇语义相近,"
+                    + "现有标签尚未把它们归到同一主题。");
+                dto.setArticles(members.stream().map(this::toCard).toList());
+                out.add(dto);
+            }
+            return out;
+        } catch (Exception e) {
+            log.warn("向量聚簇建议生成失败,返回空列表", e);
+            return List.of();
+        }
+    }
+
+    /** 这组文章是否已共享某个未归档标签(已构成一个簇)。 */
+    private boolean shareCommonActiveTag(List<Article> members) {
+        Set<String> activeTagIds = tagMapper.selectList(null).stream()
+            .filter(t -> !Boolean.TRUE.equals(t.getArchived()))
+            .map(Tag::getId).collect(Collectors.toSet());
+        Map<String, Long> tagHitCount = articleTagMapper.selectList(Wrappers.<ArticleTag>lambdaQuery()
+                .in(ArticleTag::getArticleId, members.stream().map(Article::getId).toList()))
+            .stream()
+            .filter(at -> activeTagIds.contains(at.getTagId()))
+            .collect(Collectors.groupingBy(ArticleTag::getTagId, Collectors.counting()));
+        return tagHitCount.values().stream().anyMatch(c -> c >= members.size());
+    }
+
+    /**
+     * 启发式命名:取簇内各标题里出现于最多标题的「词」(拉丁词 + 中文 2-gram),
+     * 文档频 >= 2 即用作主题名;否则回退到首篇标题截断。
+     */
+    private String nameFromTitles(List<Article> members) {
+        Map<String, Integer> docFreq = new java.util.HashMap<>();
+        for (Article a : members) {
+            Set<String> tokens = titleTokens(nz(a.getTitle()));
+            for (String tk : tokens) docFreq.merge(tk, 1, Integer::sum);
+        }
+        String best = null;
+        int bestFreq = 1;
+        for (Map.Entry<String, Integer> e : docFreq.entrySet()) {
+            int f = e.getValue();
+            if (f > bestFreq || (f == bestFreq && best != null && e.getKey().length() > best.length())) {
+                best = e.getKey();
+                bestFreq = f;
+            }
+        }
+        if (best != null && bestFreq >= 2) return best;
+        String t = nz(members.get(0).getTitle());
+        return t.isBlank() ? "新主题簇" : (t.length() > 12 ? t.substring(0, 12) + "…" : t);
+    }
+
+    /** 标题分词:拉丁词(>=2 字母数字)小写 + 中文相邻 2-gram,作为重叠候选。 */
+    private Set<String> titleTokens(String title) {
+        Set<String> tokens = new java.util.HashSet<>();
+        if (title == null || title.isBlank()) return tokens;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("[A-Za-z0-9]{2,}").matcher(title);
+        while (m.find()) tokens.add(m.group().toLowerCase());
+        // 中文 2-gram:在每段连续 CJK 上滑窗。
+        java.util.regex.Matcher cjk = java.util.regex.Pattern.compile("[\\u4e00-\\u9fff]{2,}").matcher(title);
+        while (cjk.find()) {
+            String run = cjk.group();
+            for (int i = 0; i + 2 <= run.length(); i++) tokens.add(run.substring(i, i + 2));
+        }
+        return tokens;
+    }
+
     /** 用户钉选:确保(articleId, tagId)存在,存在则升级为 user 来源,不重复插入。 */
     private void pin(String articleId, String tagId) {
         ArticleTag existing = articleTagMapper.selectOne(Wrappers.<ArticleTag>lambdaQuery()
@@ -279,6 +388,8 @@ public class ClusterService {
         try { return json == null ? List.of() : om.readValue(json, new TypeReference<List<String>>(){}); }
         catch (Exception e) { return List.of(); }
     }
+
+    private static String nz(String s) { return s == null ? "" : s; }
 
     private ArticleCardDto toCard(Article a) {
         ArticleCardDto c = new ArticleCardDto();

@@ -60,6 +60,12 @@ public class ClusterController {
         return clusterService.suggestions();
     }
 
+    /** 纯向量建议簇:对文章内容 embedding 跑 DBSCAN,发现现有标签未覆盖的语义聚集。 */
+    @GetMapping("/vector-suggestions")
+    public List<ClusterSuggestionDto> vectorSuggestions() {
+        return clusterService.vectorSuggestions();
+    }
+
     /** 采纳一条语义建议簇,落地为新簇。 */
     @PostMapping("/accept-suggestion")
     public ResponseEntity<ClusterDetailDto> acceptSuggestion(@RequestBody AcceptSuggestionRequest req) {

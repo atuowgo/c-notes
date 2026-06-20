@@ -12,6 +12,7 @@ const error = ref('');
 
 const suggestions = ref<ClusterSuggestion[]>([]);
 const suggesting = ref(false);
+const suggestingVec = ref(false);
 const accepting = ref('');
 
 async function load() {
@@ -35,6 +36,18 @@ async function loadSuggestions() {
     toast(`建议失败:${(e as Error).message}`);
   } finally {
     suggesting.value = false;
+  }
+}
+
+async function loadVectorSuggestions() {
+  suggestingVec.value = true;
+  try {
+    suggestions.value = await api.listVectorClusterSuggestions();
+    if (!suggestions.value.length) toast('向量聚类暂无新主题(需配置 embedding,或文章语义都已成簇)');
+  } catch (e) {
+    toast(`聚类失败:${(e as Error).message}`);
+  } finally {
+    suggestingVec.value = false;
   }
 }
 
@@ -63,6 +76,9 @@ defineExpose({ load });
       知识网 · 主题簇
       <button class="suggest-btn" :disabled="suggesting" @click="loadSuggestions">
         {{ suggesting ? '思考中…' : '💡 发现新主题' }}
+      </button>
+      <button class="suggest-btn vec" :disabled="suggestingVec" @click="loadVectorSuggestions">
+        {{ suggestingVec ? '聚类中…' : '🧲 向量聚类' }}
       </button>
     </div>
 

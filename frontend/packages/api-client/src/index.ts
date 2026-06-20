@@ -48,6 +48,8 @@ export interface CnotesClient {
   splitCluster(sourceId: string, name: string, articleIds: string[]): Promise<ClusterDetail>;
   /** 知识网纠偏:LLM 建议的新主题簇 / 一键接受 */
   listClusterSuggestions(): Promise<ClusterSuggestion[]>;
+  /** 知识网:纯向量(DBSCAN)聚类发现的新主题簇 */
+  listVectorClusterSuggestions(): Promise<ClusterSuggestion[]>;
   acceptClusterSuggestion(name: string, articleIds: string[]): Promise<ClusterDetail>;
   /** 想法关联:某条想法的「相关想法」 */
   listRelatedNotes(noteId: string): Promise<RelatedNote[]>;
@@ -135,6 +137,9 @@ export function createClient(baseUrl = ''): CnotesClient {
       request<ClusterDetail>('/api/clusters/split', jsonBody('POST', { sourceId, name, articleIds })),
 
     listClusterSuggestions: () => request<ClusterSuggestion[]>('/api/clusters/suggestions'),
+
+    listVectorClusterSuggestions: () =>
+      request<ClusterSuggestion[]>('/api/clusters/vector-suggestions'),
 
     acceptClusterSuggestion: (name, articleIds) =>
       request<ClusterDetail>('/api/clusters/accept-suggestion', jsonBody('POST', { name, articleIds })),
