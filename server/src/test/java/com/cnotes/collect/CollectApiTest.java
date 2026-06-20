@@ -17,6 +17,7 @@ class CollectApiTest {
 
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper om;
+    @Autowired com.cnotes.article.mapper.ArticleMapper articleMapper;
 
     private String body(String url) throws Exception {
         return om.writeValueAsString(java.util.Map.of("url", url, "title", "t", "content", "hello"));
@@ -27,6 +28,20 @@ class CollectApiTest {
         mvc.perform(post("/api/collect").contentType("application/json").content(body("https://e.com/a")))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.id", hasLength(32)));
+    }
+
+    @Test
+    void collectStoresDomSnapshotForLevel2Fetch() throws Exception {
+        String url = "https://e.com/with-snapshot";
+        String payload = om.writeValueAsString(java.util.Map.of(
+            "url", url, "title", "t", "content", "短", "domSnapshot", "<html><body>快照正文</body></html>"));
+        mvc.perform(post("/api/collect").contentType("application/json").content(payload))
+           .andExpect(status().isOk());
+
+        var a = articleMapper.selectOne(com.baomidou.mybatisplus.core.toolkit.Wrappers
+            .<com.cnotes.article.entity.Article>lambdaQuery()
+            .eq(com.cnotes.article.entity.Article::getUrlHash, com.cnotes.common.Hashing.md5Hex(url)));
+        org.assertj.core.api.Assertions.assertThat(a.getDomSnapshot()).contains("快照正文");
     }
 
     @Test

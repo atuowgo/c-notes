@@ -15,6 +15,7 @@ public class Article {
     private String author;
     private String sourceType;
     private String content;
+    private String domSnapshot;    // 渲染后 DOM 快照(插件提交),二级抓取(模型清洗)兜底用
     private String summary;
     private String keyPoints;     // JSON 字符串,Service 层序列化
     private String status;

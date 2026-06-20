@@ -28,6 +28,7 @@ public class CollectService {
         a.setTitle(req.getTitle());
         a.setAuthor(req.getAuthor());
         a.setContent(req.getContent());
+        a.setDomSnapshot(req.getDomSnapshot());   // 二级抓取兜底素材:正文不佳时由模型清洗
         a.setSourceType(req.getSourceType() == null ? "browser" : req.getSourceType());
         a.setExtractMethod(req.getContent() != null ? "readability" : null);
         a.setStatus("pending");
