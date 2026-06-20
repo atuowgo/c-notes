@@ -121,5 +121,9 @@ onUnmounted(() => document.removeEventListener('keydown', onKey));
     @close="composeNoteIds = null"
   />
   <Toast />
-  <LoginModal :open="loginOpen" @close="loginOpen = false" />
+  <LoginModal
+    :open="loginOpen"
+    @close="loginOpen = false"
+    @logged-in="user = $event; loginOpen = false"
+  />
 </template>

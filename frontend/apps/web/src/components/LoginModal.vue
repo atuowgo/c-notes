@@ -1,13 +1,33 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { api } from '../api';
-import type { AuthProvider } from '@cnotes/types';
+import type { AuthProvider, CurrentUser } from '@cnotes/types';
 
 defineProps<{ open: boolean }>();
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; 'logged-in': [user: CurrentUser] }>();
 
 const loading = ref<AuthProvider | null>(null);
 const error = ref<string | null>(null);
+const isDev = import.meta.env.DEV;
+
+// dev-login 仅开发态显示:import.meta.env.DEV 在 vite build 里恒为 false,生产构建下整个入口
+// 的 v-if 永不渲染(模板字符串仍在包内,但不暴露任何可用入口)。
+const devHandle = ref('alice');
+const devBusy = ref(false);
+
+async function devLogin() {
+  if (!devHandle.value.trim()) return;
+  devBusy.value = true;
+  error.value = null;
+  try {
+    const u = await api.devLogin(devHandle.value.trim());
+    emit('logged-in', u);
+  } catch {
+    error.value = '开发登录失败(后端未开 dev-login?)';
+  } finally {
+    devBusy.value = false;
+  }
+}
 
 async function loginWith(provider: AuthProvider) {
   loading.value = provider;
@@ -87,6 +107,19 @@ async function loginWith(provider: AuthProvider) {
           邮箱登录
           <span class="login-soon">即将上线</span>
         </button>
+      </div>
+
+      <div v-if="isDev" class="login-dev">
+        <div class="login-dev-label">开发登录(仅本地)</div>
+        <div class="login-dev-row">
+          <input
+            v-model="devHandle"
+            class="login-dev-input"
+            placeholder="handle, 如 alice"
+            @keydown.enter="devLogin"
+          />
+          <button class="login-dev-btn" :disabled="devBusy" @click="devLogin">进入</button>
+        </div>
       </div>
     </div>
   </div>
