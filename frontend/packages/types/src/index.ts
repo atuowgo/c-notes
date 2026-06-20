@@ -209,6 +209,39 @@ export interface PublicArticle {
   mine: boolean;
 }
 
+/** 广场卡片(多用户阶段 3):公开文章 + 作者 + 行为计数 + 质量分 */
+export interface PlazaCard {
+  id: string;
+  title?: string;
+  author?: string;
+  summary?: string;
+  sourceType?: SourceType;
+  createTime: string;
+  tags?: string[];
+  ownerId: string;
+  ownerNickname?: string | null;
+  ownerAvatarUrl?: string | null;
+  bookmarkCount: number;
+  collectCount: number;
+  likeCount: number;
+  commentCount: number;
+  /** 质量分(行为分 + AI 深度分) */
+  qualityScore: number;
+  effectiveShareLevel: ShareLevel;
+}
+
+/** 用户公开主页头部(多用户阶段 3) */
+export interface PublicProfile {
+  userId: string;
+  nickname?: string | null;
+  avatarUrl?: string | null;
+  publicCount: number;
+  collectedTotal: number;
+  bookmarkedTotal: number;
+  following: number;
+  followers: number;
+}
+
 /** 收录卡片(渲染进收件箱,带「收录自 X」角标;多用户阶段 2) */
 export interface CollectedCard {
   /** 收录记录 id(列表 key) */

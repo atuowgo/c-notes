@@ -14,13 +14,21 @@ import type {
   ComposeReply,
   CreateNoteRequest,
   Note,
+  PlazaCard,
   PublicArticle,
+  PublicProfile,
   RelatedArticle,
   RelatedNote,
   ShareLevel,
   TagSuggestion,
   UpdateNoteRequest,
 } from '@cnotes/types';
+
+/** 分页列表结果:数据 + 总数(来自 X-Total-Count)。 */
+export interface Paged<T> {
+  items: T[];
+  total: number;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -92,6 +100,12 @@ export interface CnotesClient {
   uncollectArticle(id: string): Promise<void>;
   /** 多用户阶段 2:我收录的卡片(渲染进收件箱) */
   listCollections(): Promise<CollectedCard[]>;
+  /** 多用户阶段 3:广场发现流(sort: 'score' 质量分 | 'recent' 最新),分页 */
+  plazaDiscover(params?: { sort?: 'score' | 'recent'; page?: number; size?: number }): Promise<Paged<PlazaCard>>;
+  /** 多用户阶段 3:用户公开主页头部 */
+  plazaProfile(userId: string): Promise<PublicProfile>;
+  /** 多用户阶段 3:某用户的公开文章(主页「已分享文章」),分页 */
+  plazaUserArticles(userId: string, params?: { page?: number; size?: number }): Promise<Paged<PlazaCard>>;
 }
 
 /**
@@ -115,11 +129,31 @@ export function createClient(baseUrl = ''): CnotesClient {
     return (text ? JSON.parse(text) : undefined) as T;   // /me 未登录返回 200 空体 → null
   }
 
+  // 分页请求:数据来自 body,总数来自 X-Total-Count 头。
+  async function requestPaged<T>(path: string): Promise<Paged<T>> {
+    const res = await fetch(`${base}${path}`, { credentials: 'include' });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { message?: string } | null;
+      throw new ApiError(res.status, data?.message ?? `HTTP ${res.status}`);
+    }
+    const total = Number(res.headers.get('X-Total-Count') ?? '0');
+    const text = await res.text();
+    const items = (text ? JSON.parse(text) : []) as T[];
+    return { items, total: Number.isFinite(total) ? total : items.length };
+  }
+
   const jsonBody = (method: string, body: unknown): RequestInit => ({
     method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+
+  const qs = (params: Record<string, string | number | undefined>): string => {
+    const u = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined) u.set(k, String(v));
+    const s = u.toString();
+    return s ? `?${s}` : '';
+  };
 
   return {
     listInbox: () => request<ArticleCard[]>('/api/articles'),
@@ -229,5 +263,18 @@ export function createClient(baseUrl = ''): CnotesClient {
       request<void>(`/api/articles/${encodeURIComponent(id)}/collect`, { method: 'DELETE' }),
 
     listCollections: () => request<CollectedCard[]>('/api/collections'),
+
+    plazaDiscover: (params) =>
+      requestPaged<PlazaCard>(
+        `/api/plaza/discover${qs({ sort: params?.sort, page: params?.page, size: params?.size })}`,
+      ),
+
+    plazaProfile: (userId) =>
+      request<PublicProfile>(`/api/plaza/users/${encodeURIComponent(userId)}`),
+
+    plazaUserArticles: (userId, params) =>
+      requestPaged<PlazaCard>(
+        `/api/plaza/users/${encodeURIComponent(userId)}/articles${qs({ page: params?.page, size: params?.size })}`,
+      ),
   };
 }

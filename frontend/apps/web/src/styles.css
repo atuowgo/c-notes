@@ -531,3 +531,49 @@ mark.hl:hover { background: linear-gradient(180deg, transparent 55%, #ffd47e 55%
 .collected-badge { font-size: 12px; font-weight: 600; color: var(--gold); margin-bottom: 7px; }
 .collected-card .c-title.withdrawn { color: var(--ink-faint); font-style: italic; }
 .collected-card .c-summary.note { color: var(--ink); }
+
+/* ============ 阶段 3:精品广场 / 用户公开主页 ============ */
+
+/* 顶栏:私域↔公域分隔 */
+.nav-sep { width: 1px; height: 18px; background: var(--line); margin: 0 6px; align-self: center; }
+
+/* 广场容器 + 子 tab */
+.plaza { max-width: var(--maxw); margin: 0 auto; padding: 18px 20px 80px; }
+.plaza-tabs { display: flex; gap: 6px; margin-bottom: 4px; }
+.sub-tab {
+  border: none; background: none; padding: 7px 14px; border-radius: 999px;
+  font-size: 14px; font-weight: 600; color: var(--ink-faint);
+}
+.sub-tab:hover { color: var(--gold); background: var(--gold-soft); }
+.sub-tab.on { color: #fff; background: var(--gold); }
+
+.plaza-bar { display: flex; align-items: center; justify-content: space-between; margin: 14px 2px 14px; }
+.plaza-bar-title { font-size: 15px; font-weight: 700; }
+.sort-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
+.sort-toggle button { border: none; background: none; padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+.sort-toggle button.on { background: var(--gold); color: #fff; }
+
+/* 广场卡片 */
+.plaza-card .quality {
+  flex: none; font-size: 13px; font-weight: 700; color: var(--gold);
+  background: var(--gold-soft); border-radius: 999px; padding: 3px 10px;
+}
+.author-link { border: none; background: none; padding: 0; font: inherit; color: var(--gold); font-weight: 600; cursor: pointer; }
+.author-link:hover { text-decoration: underline; }
+.plaza-stats { display: flex; gap: 16px; margin-top: 12px; font-size: 13px; color: var(--ink-soft); }
+.plaza-more { text-align: center; padding: 18px 0 4px; }
+.more-btn {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 9px 22px;
+  font-size: 13.5px; font-weight: 600; color: var(--ink-soft);
+}
+.more-btn:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); background: var(--gold-soft); }
+.more-btn:disabled { opacity: .55; cursor: default; }
+
+/* 用户公开主页 */
+.profile-head { display: flex; align-items: center; gap: 16px; padding: 14px 0 22px; border-bottom: 1px solid var(--line); }
+.profile-avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex: none; }
+.profile-avatar.initials { display: grid; place-items: center; background: var(--gold); color: #fff; font-size: 26px; font-weight: 700; }
+.profile-name { font-size: 21px; font-weight: 750; }
+.profile-stats { display: flex; gap: 18px; margin-top: 8px; font-size: 13.5px; color: var(--ink-soft); }
+.profile-stats b { color: var(--ink); font-weight: 700; }
+.profile-section-title { font-size: 12.5px; letter-spacing: 1px; color: var(--gold); text-transform: uppercase; font-weight: 700; margin: 22px 2px 14px; }

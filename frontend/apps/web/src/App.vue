@@ -6,6 +6,8 @@ import ReaderView from './views/ReaderView.vue';
 import ClustersView from './views/ClustersView.vue';
 import ClusterDetailView from './views/ClusterDetailView.vue';
 import PublicArticleView from './views/PublicArticleView.vue';
+import PlazaView from './views/PlazaView.vue';
+import ProfileView from './views/ProfileView.vue';
 import CollectModal from './components/CollectModal.vue';
 import ChatPanel from './components/ChatPanel.vue';
 import IdeasDrawer from './components/IdeasDrawer.vue';
@@ -17,12 +19,13 @@ import ShareSettingsModal from './components/ShareSettingsModal.vue';
 import { loadNotes } from './notes';
 import { api } from './api';
 
-type Tab = 'inbox' | 'clusters';
+type Tab = 'inbox' | 'clusters' | 'plaza';
 
 const tab = ref<Tab>('inbox');
 const openClusterId = ref<string | null>(null);
 const openId = ref<string | null>(null); // 文章阅读器,优先级最高
 const openPublicId = ref<string | null>(null); // 公开文章只读视图(收录卡片 / 公开链接进入)
+const openProfileId = ref<string | null>(null); // 用户公开主页
 const currentArticle = ref<ArticleDetail | null>(null);
 const collectOpen = ref(false);
 const drawer = ref<{ scope: 'article' | 'all' } | null>(null);
@@ -52,10 +55,19 @@ function closePublic() {
   openPublicId.value = null;
   window.scrollTo(0, 0);
 }
+function openProfile(userId: string) {
+  openProfileId.value = userId;
+}
+function closeProfile() {
+  openProfileId.value = null;
+  window.scrollTo(0, 0);
+}
 function go(t: Tab) {
   tab.value = t;
   openClusterId.value = null;
   openId.value = null;
+  openPublicId.value = null;
+  openProfileId.value = null;
   currentArticle.value = null;
 }
 
@@ -67,6 +79,7 @@ function onKey(e: KeyboardEvent) {
   else if (drawer.value) drawer.value = null;
   else if (collectOpen.value) collectOpen.value = false;
   else if (openPublicId.value) closePublic();
+  else if (openProfileId.value) closeProfile();
   else if (openId.value) closeReader();
   else if (openClusterId.value) openClusterId.value = null;
 }
@@ -88,6 +101,8 @@ onUnmounted(() => document.removeEventListener('keydown', onKey));
       <nav class="tabs">
         <button class="nav-tab" :class="{ active: tab === 'inbox' && !openClusterId }" @click="go('inbox')">收件箱</button>
         <button class="nav-tab" :class="{ active: tab === 'clusters' || openClusterId }" @click="go('clusters')">知识网</button>
+        <span class="nav-sep"></span>
+        <button class="nav-tab" :class="{ active: tab === 'plaza' }" @click="go('plaza')">广场</button>
       </nav>
       <div class="spacer"></div>
       <button class="add-btn" @click="collectOpen = true">＋ 收藏链接</button>
@@ -110,6 +125,14 @@ onUnmounted(() => document.removeEventListener('keydown', onKey));
     @back="closePublic"
     @login="loginOpen = true"
   />
+  <!-- 用户公开主页叠加层 -->
+  <ProfileView
+    v-else-if="openProfileId"
+    :user-id="openProfileId"
+    @back="closeProfile"
+    @open="openPublic"
+    @open-profile="openProfile"
+  />
   <!-- 阅读器叠加层 -->
   <ReaderView
     v-else-if="openId"
@@ -131,6 +154,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKey));
   <template v-else>
     <InboxView v-if="tab === 'inbox'" ref="inbox" @open="openReader" @open-public="openPublic" />
     <ClustersView v-if="tab === 'clusters'" @open="openClusterId = $event" />
+    <PlazaView v-if="tab === 'plaza'" @open="openPublic" @open-profile="openProfile" />
   </template>
 
   <CollectModal :open="collectOpen" @close="collectOpen = false" @collected="inbox?.load()" />

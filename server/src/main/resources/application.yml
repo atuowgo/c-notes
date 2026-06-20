@@ -40,6 +40,19 @@ wechat:
   # 公众号「服务器配置」的 Token(明文/兼容模式);仅来自环境变量,严禁写入仓库。
   token: ${WECHAT_TOKEN:}
   welcome-reply: "已收下,正在自动整理 ✅ 处理完可在阅读端查看。"
+plaza:
+  # 精品广场质量分权重(可调):质量分 = 行为分 + AI深度分,发现流再乘新鲜度衰减。
+  # 冷启动期可调高 ai-weight、调低行为权重,避免排序全靠零星互动。
+  score:
+    collect: ${PLAZA_W_COLLECT:3}        # 收录权重
+    bookmark: ${PLAZA_W_BOOKMARK:2}      # 收藏权重
+    like: ${PLAZA_W_LIKE:2}              # 点赞权重(阶段 4 启用,暂恒 0)
+    comment: ${PLAZA_W_COMMENT:1}        # 评论权重(阶段 4 启用,暂恒 0)
+    degree: ${PLAZA_W_DEGREE:1}          # 知识网连通度(article_relation 度数)权重
+    ai-weight: ${PLAZA_AI_WEIGHT:1.0}    # AI 深度分整体系数
+    freshness-halflife-days: ${PLAZA_FRESHNESS_HALFLIFE:7}  # 新鲜度半衰期(天)
+    candidate-cap: ${PLAZA_CANDIDATE_CAP:500}               # 候选池上限(按最新截取后在内存算分排序)
+
 extract:
   # HTTP 抓取正文不足此长度则尝试无头渲染兜底。
   min-content-length: 200
