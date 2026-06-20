@@ -4,7 +4,7 @@ import type { ArticleDetail, TagSuggestion } from '@cnotes/types';
 import { api } from '../api';
 import { srcLabel } from '../format';
 import { toast } from '../toast';
-import { addNote, notesForArticle } from '../notes';
+import { addNote, notesForArticle, loadNotes } from '../notes';
 import DistillCard from '../components/DistillCard.vue';
 import RecommendList from '../components/RecommendList.vue';
 
@@ -18,6 +18,24 @@ const emit = defineEmits<{
 
 const article = ref<ArticleDetail | null>(null);
 const bodyEl = ref<HTMLElement>();
+const refreshing = ref(false);
+
+// 刷新正文:后端重新抓取,正文变化则重定位划线锚点;成功后重载本文与想法。
+async function refreshArticle() {
+  if (!article.value || refreshing.value) return;
+  refreshing.value = true;
+  const id = article.value.id;
+  try {
+    article.value = await api.refreshArticle(id);
+    await loadNotes();   // 锚点可能被重定位,重载想法缓存让高亮跟随新正文
+    toast('正文已刷新');
+  } catch (e) {
+    const err = e as { status?: number; message: string };
+    toast(err.status === 422 ? '抓取失败,正文未变' : `刷新失败:${err.message}`);
+  } finally {
+    refreshing.value = false;
+  }
+}
 
 /* ---------- 待确认标签建议 ---------- */
 const tagSuggestions = ref<TagSuggestion[]>([]);
@@ -180,9 +198,14 @@ function cancelNote() {
   <div class="reader">
     <div class="r-top">
       <button class="back" @click="emit('back')">← 返回收件箱</button>
-      <button v-if="article" class="ideas-entry" @click="emit('openIdeas')">
-        💡 本文想法 <span class="cnt">{{ noteCount }}</span>
-      </button>
+      <div class="r-top-actions">
+        <button v-if="article" class="refresh-btn" :disabled="refreshing" @click="refreshArticle">
+          {{ refreshing ? '刷新中…' : '🔄 刷新正文' }}
+        </button>
+        <button v-if="article" class="ideas-entry" @click="emit('openIdeas')">
+          💡 本文想法 <span class="cnt">{{ noteCount }}</span>
+        </button>
+      </div>
     </div>
 
     <template v-if="article">

@@ -12,6 +12,7 @@ import java.util.List;
 public class ArticleController {
 
     private final ArticleQueryService queryService;
+    private final ArticleRefreshService refreshService;
 
     @GetMapping
     public ResponseEntity<List<ArticleCardDto>> inbox(
@@ -27,5 +28,18 @@ public class ArticleController {
     public ResponseEntity<ArticleDetailDto> detail(@PathVariable String id) {
         ArticleDetailDto d = queryService.detail(id);
         return d == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(d);
+    }
+
+    /** 刷新正文:重新抓取,正文变化则重定位划线想法锚点并尽力重织;返回最新详情。 */
+    @PostMapping("/{id}/refresh")
+    public ResponseEntity<ArticleDetailDto> refresh(@PathVariable String id) {
+        try {
+            refreshService.refresh(id);
+        } catch (IllegalArgumentException notFound) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException fetchFailed) {
+            return ResponseEntity.unprocessableEntity().build();
+        }
+        return ResponseEntity.ok(queryService.detail(id));
     }
 }

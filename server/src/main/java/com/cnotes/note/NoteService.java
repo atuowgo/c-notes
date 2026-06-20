@@ -21,7 +21,36 @@ public class NoteService {
 
     private final NoteMapper noteMapper;
     private final ArticleMapper articleMapper;
+    private final AnchorRelocator anchorRelocator;
     private final ObjectMapper om;
+
+    /** 一次重定位的结果统计:命中重定位 / 孤立(找不到 quote)的想法数。 */
+    public record RelocationResult(int relocated, int orphaned) {}
+
+    /**
+     * 正文更新后,把本文所有带锚点的想法按 quote 在新正文里重定位(产品设计 §8.4)。
+     * 找到 → 更新偏移;找不到 → 置空锚点(孤立想法,只存不高亮)。无锚点的想法跳过。
+     */
+    @Transactional
+    public RelocationResult relocateAnchors(String articleId, String newContent) {
+        List<Note> notes = noteMapper.selectList(
+            Wrappers.<Note>lambdaQuery().eq(Note::getArticleId, articleId));
+        int relocated = 0, orphaned = 0;
+        for (Note n : notes) {
+            NoteAnchor old = readAnchor(n.getAnchor());
+            if (old == null) continue;   // 本就无锚点,不处理
+            var next = anchorRelocator.relocate(n.getQuote(), old, newContent);
+            String newAnchorJson = next.map(this::writeAnchor).orElse(null);
+            // 偏移无变化则不写库(避免无谓 update)。
+            if (java.util.Objects.equals(newAnchorJson, n.getAnchor())) continue;
+            // 用 lambdaUpdate().set 显式写值:孤立时要把 anchor 置 NULL(updateById 会忽略 null)。
+            noteMapper.update(null, Wrappers.<Note>lambdaUpdate()
+                .eq(Note::getId, n.getId())
+                .set(Note::getAnchor, newAnchorJson));
+            if (next.isPresent()) relocated++; else orphaned++;
+        }
+        return new RelocationResult(relocated, orphaned);
+    }
 
     @Transactional
     public NoteDto create(CreateNoteRequest req) {

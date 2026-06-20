@@ -192,6 +192,13 @@ button { font-family: inherit; cursor: pointer; }
 /* 正文页顶部:返回 + 本文想法入口 */
 .r-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; }
 .r-top .back { margin: 0; }
+.r-top-actions { display: flex; align-items: center; gap: 8px; }
+.refresh-btn {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 14px;
+  font-size: 13px; font-weight: 600; color: var(--ink-soft);
+}
+.refresh-btn:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); background: var(--gold-soft); }
+.refresh-btn:disabled { opacity: .55; cursor: default; }
 .r-meta a.origin { margin-left: auto; color: var(--gold); font-weight: 600; text-decoration: none; }
 .r-meta a.origin:hover { text-decoration: underline; }
 .ideas-entry {

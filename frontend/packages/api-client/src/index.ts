@@ -30,6 +30,8 @@ export class ApiError extends Error {
 export interface CnotesClient {
   listInbox(): Promise<ArticleCard[]>;
   getArticle(id: string): Promise<ArticleDetail>;
+  /** 刷新正文:重新抓取,正文变化则后端重定位划线锚点;返回最新详情 */
+  refreshArticle(id: string): Promise<ArticleDetail>;
   collect(req: CollectRequest): Promise<CollectResponse>;
   /** 划线想法:不传参取全部;articleId 取本文;q 跨文章检索 quote/thought */
   listNotes(params?: { articleId?: string; q?: string }): Promise<Note[]>;
@@ -95,6 +97,9 @@ export function createClient(baseUrl = ''): CnotesClient {
 
     getArticle: (id) =>
       request<ArticleDetail>(`/api/articles/${encodeURIComponent(id)}`),
+
+    refreshArticle: (id) =>
+      request<ArticleDetail>(`/api/articles/${encodeURIComponent(id)}/refresh`, { method: 'POST' }),
 
     collect: (req) => request<CollectResponse>('/api/collect', jsonBody('POST', req)),
 
