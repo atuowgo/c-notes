@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>多用户 + 精品广场 交互 mockup</title>
+<style>
+  :root{
+    --bg:#f6f4f0; --surface:#ffffff; --ink:#23201c; --ink-soft:#6b6359; --ink-faint:#9a9186;
+    --line:#e7e2d9; --gold:#b45309; --gold-soft:#f2e6d2; --green:#3f7d4e; --red:#b3402e;
+    --radius:14px; --shadow:0 1px 2px rgba(40,33,22,.04),0 6px 20px rgba(40,33,22,.05);
+    --font-sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#ece8e1;color:var(--ink);font-family:var(--font-sans);padding:32px;}
+  .frame{width:880px;margin:0 auto 40px;background:var(--bg);border-radius:18px;overflow:hidden;
+    box-shadow:0 4px 14px rgba(40,33,22,.10),0 18px 50px rgba(40,33,22,.10);position:relative;}
+  .frame-label{position:absolute;top:14px;right:18px;font-size:12px;font-weight:700;color:var(--ink-faint);
+    background:rgba(255,255,255,.7);padding:4px 10px;border-radius:999px;z-index:50;}
+  /* topbar */
+  .topbar{background:rgba(246,244,240,.92);border-bottom:1px solid var(--line);}
+  .topbar-inner{padding:14px 20px;display:flex;align-items:center;gap:12px;}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:16px;}
+  .mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(150deg,var(--gold),#e0a050);
+    display:grid;place-items:center;color:#fff;font-size:15px;}
+  .tabs{display:flex;gap:2px;margin-left:8px;}
+  .nav-tab{border:none;background:none;padding:6px 12px;border-radius:8px;font-size:14px;font-weight:600;color:var(--ink-faint);}
+  .nav-tab.active{color:var(--gold);background:var(--gold-soft);}
+  .spacer{flex:1;}
+  .add-btn{border:1px solid var(--gold);background:var(--gold);color:#fff;border-radius:9px;padding:7px 13px;font-size:13.5px;font-weight:600;}
+  .icon-btn{border:1px solid var(--line);background:var(--surface);border-radius:9px;width:34px;height:34px;display:grid;place-items:center;color:var(--ink-soft);}
+  .avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(150deg,#e0a050,var(--gold));display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px;}
+  .login-btn{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:7px 14px;font-size:13.5px;font-weight:600;color:var(--ink-soft);}
+  /* feed */
+  .feed{padding:18px 20px 28px;}
+  .sub-tabs{display:flex;gap:6px;margin-bottom:16px;}
+  .sub-tab{padding:6px 14px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--ink-faint);background:var(--surface);border:1px solid var(--line);}
+  .sub-tab.active{color:#fff;background:var(--gold);border-color:var(--gold);}
+  .feed-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .feed-head h3{margin:0;font-size:15px;}
+  .sort{font-size:12.5px;color:var(--ink-faint);}
+  .sort b{color:var(--gold);}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow);position:relative;}
+  .c-top{display:flex;align-items:flex-start;gap:10px;}
+  .c-title{font-size:16.5px;font-weight:700;margin:0;flex:1;line-height:1.4;}
+  .score{flex:none;font-size:12.5px;font-weight:800;color:var(--gold);background:var(--gold-soft);padding:4px 10px;border-radius:999px;}
+  .c-author{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-faint);margin:9px 0 0;}
+  .mini-av{width:20px;height:20px;border-radius:50%;background:linear-gradient(150deg,#8bb,#578);display:grid;place-items:center;color:#fff;font-size:10px;font-weight:700;}
+  .tag{color:var(--gold);font-weight:600;}
+  .c-summary{font-size:14px;color:var(--ink-soft);margin:10px 0 0;line-height:1.6;}
+  .c-stats{display:flex;gap:16px;font-size:12.5px;color:var(--ink-faint);margin:12px 0 0;}
+  .c-actions{display:flex;gap:8px;margin:13px 0 0;flex-wrap:wrap;}
+  .act{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--ink-soft);}
+  .act.primary{border-color:var(--gold);color:var(--gold);background:var(--gold-soft);}
+  .act.gold{background:var(--gold);border-color:var(--gold);color:#fff;}
+  .ribbon{position:absolute;top:0;left:0;background:var(--green);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:14px 0 12px 0;}
+  /* generic */
+  .pad{padding:22px;}
+  .muted{color:var(--ink-faint);font-size:13px;}
+  /* login modal */
+  .modal-bg{background:rgba(40,33,22,.34);padding:50px 0;display:grid;place-items:center;}
+  .modal{width:380px;background:var(--surface);border-radius:18px;padding:30px 28px;text-align:center;box-shadow:0 20px 60px rgba(40,33,22,.3);}
+  .modal .mark-lg{width:48px;height:48px;border-radius:14px;background:linear-gradient(150deg,var(--gold),#e0a050);display:grid;place-items:center;color:#fff;font-size:26px;margin:0 auto 12px;}
+  .modal h2{margin:0 0 4px;font-size:19px;}
+  .modal p.sub{margin:0 0 22px;color:var(--ink-faint);font-size:13.5px;}
+  .oauth{display:block;width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:14.5px;font-weight:600;margin-bottom:11px;color:var(--ink);text-align:center;}
+  .oauth.gh{background:#24292f;color:#fff;border-color:#24292f;}
+  .oauth.wx{background:#07c160;color:#fff;border-color:#07c160;}
+  .oauth.disabled{color:var(--ink-faint);background:#f3f0ea;cursor:not-allowed;}
+  .qr{width:150px;height:150px;margin:6px auto 8px;border-radius:12px;background:
+    repeating-linear-gradient(0deg,#23201c 0 8px,transparent 8px 16px),
+    repeating-linear-gradient(90deg,#23201c 0 8px,#fff 8px 16px);background-blend-mode:multiply;border:6px solid #fff;box-shadow:0 0 0 1px var(--line);}
+  /* share settings */
+  .opt{display:flex;align-items:center;gap:11px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:9px;background:var(--surface);}
+  .opt.sel{border-color:var(--gold);background:var(--gold-soft);}
+  .radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--ink-faint);flex:none;}
+  .opt.sel .radio{border-color:var(--gold);background:radial-gradient(circle,#fff 30%,var(--gold) 32%);}
+  .opt .t{font-size:14.5px;font-weight:600;}
+  .opt .d{font-size:12px;color:var(--ink-faint);margin-top:2px;}
+  /* reader */
+  .reader{padding:16px 26px 24px;}
+  .r-top{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--ink-soft);margin-bottom:8px;}
+  .r-top .spacer{flex:1;}
+  .share-pill{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--ink-soft);}
+  .r-title{font-size:25px;font-weight:800;margin:8px 0 6px;line-height:1.3;}
+  .r-meta{font-size:12.5px;color:var(--ink-faint);display:flex;gap:8px;align-items:center;}
+  .distill{background:linear-gradient(180deg,#fffdf8,#fbf6ec);border:1px solid #ecdcc0;border-radius:var(--radius);padding:16px 18px;margin:18px 0;}
+  .distill h4{margin:0 0 8px;font-size:12px;letter-spacing:1px;color:var(--gold);}
+  .distill .s{font-size:14.5px;line-height:1.7;margin:0;}
+  .r-body{font-size:15.5px;line-height:1.85;color:#33302a;}
+  .r-body p{margin:0 0 14px;}
+  .annot{border-left:3px solid var(--gold);padding-left:12px;background:var(--gold-soft);border-radius:0 8px 8px 0;}
+  .annot-note{font-size:12.5px;color:var(--gold);margin-top:5px;font-weight:600;}
+  .actionbar{position:sticky;bottom:0;display:flex;gap:10px;justify-content:center;background:rgba(255,255,255,.95);
+    border:1px solid var(--line);border-radius:14px;padding:11px;margin-top:20px;box-shadow:0 -2px 14px rgba(40,33,22,.06);}
+  .ab{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:8px 16px;font-size:13.5px;font-weight:600;color:var(--ink-soft);}
+  .ab.liked{border-color:var(--gold);color:var(--gold);background:var(--gold-soft);}
+  .ab.collect{border-color:var(--gold);background:var(--gold);color:#fff;}
+  /* comments */
+  .comments{margin-top:18px;}
+  .comments h4{font-size:14px;margin:0 0 12px;}
+  .cmt{display:flex;gap:10px;margin-bottom:14px;}
+  .cmt .body{flex:1;}
+  .cmt .who{font-size:12.5px;color:var(--ink-faint);}
+  .cmt .who b{color:var(--ink);}
+  .author-tag{font-size:10.5px;background:var(--gold-soft);color:var(--gold);padding:1px 6px;border-radius:6px;font-weight:700;margin-left:5px;}
+  .cmt .txt{font-size:14px;margin:3px 0 0;}
+  .cmt.reply{margin-left:34px;}
+  .cmt-input{display:flex;gap:8px;margin-top:8px;}
+  .cmt-input .box{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13.5px;color:var(--ink-faint);background:var(--surface);}
+  /* profile */
+  .profile-head{padding:24px 26px;background:linear-gradient(180deg,#fffdf8,var(--bg));border-bottom:1px solid var(--line);}
+  .ph-top{display:flex;align-items:center;gap:14px;}
+  .big-av{width:60px;height:60px;border-radius:50%;background:linear-gradient(150deg,#e0a050,var(--gold));display:grid;place-items:center;color:#fff;font-size:26px;font-weight:700;}
+  .ph-name{font-size:21px;font-weight:800;}
+  .follow-btn{margin-left:auto;border:1px solid var(--gold);background:var(--gold);color:#fff;border-radius:10px;padding:9px 20px;font-weight:700;font-size:14px;}
+  .ph-stats{display:flex;gap:24px;margin-top:14px;font-size:13px;color:var(--ink-soft);}
+  .ph-stats b{color:var(--ink);font-size:15px;}
+  .profile-tabs{display:flex;gap:18px;padding:0 26px;border-bottom:1px solid var(--line);}
+  .pt{padding:13px 2px;font-size:14px;font-weight:600;color:var(--ink-faint);border-bottom:2px solid transparent;}
+  .pt.active{color:var(--gold);border-color:var(--gold);}
+  /* dropdown */
+  .menu{position:absolute;top:56px;right:20px;width:180px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 40px rgba(40,33,22,.18);padding:6px;z-index:60;}
+  .mi{padding:9px 12px;font-size:14px;border-radius:8px;color:var(--ink-soft);font-weight:500;}
+  .mi.danger{color:var(--red);}
+  .caption{width:880px;margin:0 auto 8px;font-size:13px;font-weight:700;color:#5a5249;}
+</style>
+</head>
+<body>
+
+<!-- ============ 1. 精品广场 · 发现流(主屏) ============ -->
+<div class="caption">① 精品广场 · 发现流 —— 顶栏新增「广场」tab + 头像区;质量分角标;操作按级别渐进显示</div>
+<div class="frame">
+  <span class="frame-label">广场 / 发现</span>
+  <div class="topbar"><div class="topbar-inner">
+    <div class="brand"><span class="mark">⚗</span> 知识炼金炉</div>
+    <nav class="tabs">
+      <button class="nav-tab">收件箱</button>
+      <button class="nav-tab">知识网</button>
+      <button class="nav-tab active">广场</button>
+    </nav>
+    <div class="spacer"></div>
+    <button class="add-btn">＋ 收藏链接</button>
+    <button class="icon-btn">💡</button>
+    <div class="avatar">陈</div>
+  </div></div>
+  <div class="feed">
+    <div class="sub-tabs">
+      <span class="sub-tab active">发现</span>
+      <span class="sub-tab">关注</span>
+      <span class="sub-tab">话题</span>
+    </div>
+    <div class="feed-head"><h3>🔥 本周精选</h3><span class="sort">排序:<b>质量分</b> · 最新</span></div>
+
+    <div class="card">
+      <div class="c-top">
+        <h3 class="c-title">深入理解 LLM 推理优化:从 KV-cache 到投机解码</h3>
+        <span class="score">⭐ 92</span>
+      </div>
+      <div class="c-author"><span class="mini-av">陈</span> 阿陈 · 3天前 · <span class="tag">#LLM</span> <span class="tag">#推理优化</span></div>
+      <p class="c-summary">本文从 KV-cache 的显存占用谈起,逐层拆解 PagedAttention、连续批处理与投机解码如何把吞吐推到极限……</p>
+      <div class="c-stats"><span>📥 收录 8</span><span>👍 赞 24</span><span>🔖 收藏 12</span><span>💬 评论 5</span></div>
+      <div class="c-actions">
+        <span class="act">🔖 收藏</span>
+        <span class="act primary">📥 收录</span>
+        <span class="act">👍 赞</span>
+        <span class="act gold">打开阅读</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="c-top">
+        <h3 class="c-title">咖啡萃取的科学:为什么水温差 3℃ 风味天差地别</h3>
+        <span class="score">⭐ 78</span>
+      </div>
+      <div class="c-author"><span class="mini-av">林</span> 小林 · 5天前 · <span class="tag">#咖啡</span> <span class="tag">#萃取</span></div>
+      <p class="c-summary">温度决定了可溶物的释放速度,本文用一组对照实验展示从 88℃ 到 96℃ 的风味曲线……</p>
+      <div class="c-stats"><span>📥 收录 3</span><span>👍 赞 15</span><span>🔖 收藏 9</span><span>💬 评论 2</span></div>
+      <div class="c-actions">
+        <span class="act">🔖 收藏</span>
+        <span class="act gold">打开阅读</span>
+        <span class="muted" style="align-self:center;margin-left:4px;">· 该文仅「允许收藏」级,故无收录/评论入口</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 2. 登录层 ============ -->
+<div class="caption">② 登录层 —— 浏览广场免登录,写操作触发;三方授权,微信原位展开二维码,邮箱登录置灰预留</div>
+<div class="frame">
+  <span class="frame-label">登录 / 授权</span>
+  <div style="display:flex;">
+    <div class="modal-bg" style="flex:1;">
+      <div class="modal">
+        <div class="mark-lg">⚗</div>
+        <h2>登录后开始炼金</h2>
+        <p class="sub">浏览广场无需登录;收藏、收录、评论需登录</p>
+        <a class="oauth gh">⟠ 使用 GitHub 登录</a>
+        <a class="oauth">G 使用 Google 登录</a>
+        <a class="oauth wx">⤬ 微信扫码登录</a>
+        <a class="oauth disabled">✉ 邮箱登录 · 即将上线</a>
+      </div>
+    </div>
+    <div class="modal-bg" style="flex:1;background:rgba(40,33,22,.20);">
+      <div class="modal">
+        <div class="mark-lg" style="background:#07c160;">⤬</div>
+        <h2>微信扫码登录</h2>
+        <p class="sub">请用微信扫一扫</p>
+        <div class="qr"></div>
+        <p class="muted">等待扫码确认…</p>
+        <a class="oauth" style="margin-top:6px;">← 返回其他方式</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 3. 阅读器:他人公开文章 ============ -->
+<div class="caption">③ 阅读器 · 他人公开文章 —— 公开批注(左侧金条)+ 吸底操作条(赞/收藏/收录/评论)+ 楼中楼评论</div>
+<div class="frame">
+  <span class="frame-label">阅读 / 他人公开文</span>
+  <div class="reader">
+    <div class="r-top"><span>← 返回广场</span><span class="spacer"></span><span class="muted">来自</span><span class="mini-av">陈</span><b style="font-size:13px;">阿陈</b></div>
+    <div class="r-title">深入理解 LLM 推理优化</div>
+    <div class="r-meta"><span>arxiv.org</span> · <span>原作 · 2026-06-12</span></div>
+    <div class="distill"><h4>AI 提炼</h4><p class="s">推理优化的核心矛盾是显存带宽 vs 吞吐。KV-cache 是主战场,PagedAttention 解决碎片,投机解码用小模型起草、大模型校验换取墙钟加速。</p></div>
+    <div class="r-body">
+      <p>大语言模型在推理阶段的瓶颈,往往不在算力而在显存带宽。每生成一个 token,都要读取完整的 KV-cache……</p>
+      <p class="annot">PagedAttention 借鉴操作系统的分页机制,把 KV-cache 切成固定大小的块,按需分配,显著降低了显存碎片。<span class="annot-note">┃ 💬 阿陈的公开批注:这一段是 vLLM 的核心,值得反复读</span></p>
+      <p>投机解码(speculative decoding)则换了个思路:用一个小模型快速起草若干 token,再让大模型一次性校验……</p>
+    </div>
+    <div class="actionbar">
+      <span class="ab liked">👍 已赞 25</span>
+      <span class="ab">🔖 收藏</span>
+      <span class="ab collect">📥 收录到我的知识库</span>
+      <span class="ab">💬 评论 5</span>
+    </div>
+    <div class="comments">
+      <h4>💬 评论 (5)</h4>
+      <div class="cmt"><span class="mini-av">李</span><div class="body"><div class="who"><b>小李</b> · 2小时前</div><p class="txt">这段对 KV-cache 的解释是我看过最清楚的。</p></div></div>
+      <div class="cmt reply"><span class="mini-av">陈</span><div class="body"><div class="who"><b>阿陈</b><span class="author-tag">作者</span> · 1小时前</div><p class="txt">谢谢,后续会补一篇投机解码的实测。</p></div></div>
+      <div class="cmt"><span class="mini-av">王</span><div class="body"><div class="who"><b>王五</b> · 昨天</div><p class="txt">求 PagedAttention 的源码导读 🙏</p></div></div>
+      <div class="cmt-input"><div class="box">写下你的评论…</div><span class="add-btn">发送</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 4. 分享设置 + 逐篇覆盖 ============ -->
+<div class="caption">④ 分享设置 —— 账号默认级别(单调向下兼容);右侧为阅读器内逐篇覆盖下拉</div>
+<div class="frame">
+  <span class="frame-label">分享设置</span>
+  <div style="display:flex;gap:0;">
+    <div class="pad" style="flex:1.2;border-right:1px solid var(--line);">
+      <h3 style="margin:0 0 4px;">我的内容默认分享级别</h3>
+      <p class="muted" style="margin:0 0 16px;">高级别自动包含低级别能力。单篇可在阅读器单独覆盖。</p>
+      <div class="opt"><span class="radio"></span><div><div class="t">🔒 私有</div><div class="d">不进广场,仅自己可见</div></div></div>
+      <div class="opt"><span class="radio"></span><div><div class="t">👁 仅只读</div><div class="d">他人可看全文/AI摘要/标签</div></div></div>
+      <div class="opt sel"><span class="radio"></span><div><div class="t">📥 允许收录</div><div class="d">含只读+收藏;他人可收录到自己知识库</div></div></div>
+      <div class="opt"><span class="radio"></span><div><div class="t">💬 允许评论</div><div class="d">含以上全部 + 公开批注 + 评论</div></div></div>
+      <div style="text-align:right;margin-top:14px;"><span class="add-btn">保存</span></div>
+    </div>
+    <div class="pad" style="flex:1;background:#faf8f4;">
+      <p class="muted" style="margin:0 0 10px;">阅读自己的文章时,顶部逐篇覆盖:</p>
+      <div class="r-top" style="background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;">
+        <span>← 返回</span><span class="spacer"></span><span class="muted">🔄 刷新</span>
+        <span class="share-pill" style="border-color:var(--gold);color:var(--gold);background:var(--gold-soft);">分享:允许评论 ▾</span>
+      </div>
+      <div class="menu" style="position:static;width:auto;margin-top:8px;box-shadow:none;">
+        <div class="mi">🔒 私有</div>
+        <div class="mi">👁 仅只读</div>
+        <div class="mi">🔖 允许收藏</div>
+        <div class="mi" style="color:var(--gold);font-weight:700;background:var(--gold-soft);">📥 允许收录</div>
+        <div class="mi">✍ 允许公开批注</div>
+        <div class="mi">💬 允许评论</div>
+      </div>
+      <p class="muted" style="margin-top:10px;">改完即时生效 → toast「已公开,可在广场查看」+ 复制公开链接。</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 5. 用户公开主页 ============ -->
+<div class="caption">⑤ 用户公开主页 —— 统计 + 已分享文章 + 知识地图(复用 ClustersView 可视化)</div>
+<div class="frame">
+  <span class="frame-label">公开主页</span>
+  <div class="profile-head">
+    <div class="ph-top">
+      <div class="big-av">陈</div>
+      <div><div class="ph-name">阿陈</div><div class="muted">在炼金炉沉淀 LLM / 系统设计 / 咖啡</div></div>
+      <button class="follow-btn">＋ 关注</button>
+    </div>
+    <div class="ph-stats">
+      <span><b>128</b> 炼金</span><span><b>36</b> 公开</span><span><b>210</b> 被收录</span>
+      <span><b>12</b> 关注</span><span><b>88</b> 粉丝</span>
+    </div>
+  </div>
+  <div class="profile-tabs"><span class="pt active">已分享文章</span><span class="pt">知识地图</span></div>
+  <div class="feed">
+    <div class="card">
+      <div class="c-top"><h3 class="c-title">深入理解 LLM 推理优化</h3><span class="score">⭐ 92</span></div>
+      <div class="c-author">3天前 · <span class="tag">#LLM</span> · 📥 8 · 👍 24</div>
+    </div>
+    <div class="card">
+      <div class="c-top"><h3 class="c-title">分布式系统的一致性光谱</h3><span class="score">⭐ 85</span></div>
+      <div class="c-author">1周前 · <span class="tag">#系统设计</span> · 📥 6 · 👍 19</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 6. 收件箱:收录文章标识 + 头像菜单 ============ -->
+<div class="caption">⑥ 我的收件箱 —— 收录的他人文章带「📥 收录自」角标,与原创区分;头像下拉菜单</div>
+<div class="frame">
+  <span class="frame-label">收件箱 / 头像菜单</span>
+  <div class="topbar"><div class="topbar-inner">
+    <div class="brand"><span class="mark">⚗</span> 知识炼金炉</div>
+    <nav class="tabs"><button class="nav-tab active">收件箱</button><button class="nav-tab">知识网</button><button class="nav-tab">广场</button></nav>
+    <div class="spacer"></div>
+    <button class="add-btn">＋ 收藏链接</button><button class="icon-btn">💡</button><div class="avatar">陈</div>
+  </div></div>
+  <div class="menu">
+    <div class="mi">👤 我的主页</div>
+    <div class="mi">🔗 分享设置</div>
+    <div class="mi">⚙ 账号设置</div>
+    <div class="mi danger">退出登录</div>
+  </div>
+  <div class="feed">
+    <div class="card">
+      <div class="ribbon">📥 收录自 阿陈</div>
+      <div class="c-top" style="margin-top:8px;"><h3 class="c-title">深入理解 LLM 推理优化</h3></div>
+      <p class="c-summary">我的笔记:投机解码那段对项目很有用,待落地验证。</p>
+    </div>
+    <div class="card">
+      <div class="c-top"><h3 class="c-title">我自己收藏的:Raft 论文精读</h3><span class="badge" style="font-size:11.5px;color:var(--green);background:#eaf3ec;padding:4px 9px;border-radius:999px;font-weight:600;">✓ 已沉淀</span></div>
+      <div class="c-author">原创收藏 · <span class="tag">#共识算法</span></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
