@@ -8,6 +8,7 @@ import { addNote, notesForArticle, loadNotes } from '../notes';
 import DistillCard from '../components/DistillCard.vue';
 import RecommendList from '../components/RecommendList.vue';
 import ShareControl from '../components/ShareControl.vue';
+import ShareCardModal from '../components/ShareCardModal.vue';
 
 const props = defineProps<{ id: string; accountDefault?: ShareLevel }>();
 const emit = defineEmits<{
@@ -194,6 +195,8 @@ function cancelNote() {
   pending = null;
 }
 
+const shareCardOpen = ref(false);
+
 // 逐篇分享级别改完即时回显到本文详情。
 function onShareUpdated(payload: { shareLevel: string | null; effectiveLevel: ShareLevel }) {
   if (!article.value) return;
@@ -224,6 +227,7 @@ function onShareUpdated(payload: { shareLevel: string | null; effectiveLevel: Sh
         <button v-if="article" class="ideas-entry" @click="emit('openIdeas')">
           💡 本文想法 <span class="cnt">{{ noteCount }}</span>
         </button>
+        <button v-if="article" class="pa-btn" @click="shareCardOpen = true">📤 分享</button>
       </div>
     </div>
 
@@ -290,4 +294,14 @@ function onShareUpdated(payload: { shareLevel: string | null; effectiveLevel: Sh
       </div>
     </div>
   </div>
+
+  <ShareCardModal
+    v-if="article"
+    :open="shareCardOpen"
+    :article-id="article.id"
+    :title="article.title"
+    :summary="article.summary"
+    :tags="article.tags"
+    @close="shareCardOpen = false"
+  />
 </template>

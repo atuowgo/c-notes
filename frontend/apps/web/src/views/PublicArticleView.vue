@@ -5,6 +5,7 @@ import { api } from '../api';
 import { toast } from '../toast';
 import { relTime } from '../format';
 import { levelAtLeast } from '../share';
+import ShareCardModal from '../components/ShareCardModal.vue';
 
 const props = defineProps<{ id: string; loggedIn: boolean }>();
 const emit = defineEmits<{ back: []; login: []; openProfile: [userId: string] }>();
@@ -18,6 +19,7 @@ const busy = ref(false);
 const bodyEl = ref<HTMLElement>();
 
 const eff = computed(() => article.value?.effectiveShareLevel);
+const shareCardOpen = ref(false);
 const canBookmark = computed(() => levelAtLeast(eff.value, 'BOOKMARKABLE'));
 const canCollect = computed(() => levelAtLeast(eff.value, 'COLLECTABLE'));
 const canAnnotate = computed(() => levelAtLeast(eff.value, 'ANNOTATABLE') && !article.value?.mine);
@@ -238,16 +240,17 @@ async function removeComment(c: Comment) {
       <p v-if="canAnnotate" class="annot-hint">划选正文即可发表公开批注 ✍</p>
 
       <!-- 操作条 -->
-      <div v-if="!article.mine" class="public-actions">
-        <button class="pa-btn" :class="{ on: article.liked }" :disabled="busy" @click="toggleLike">
+      <div class="public-actions">
+        <button v-if="!article.mine" class="pa-btn" :class="{ on: article.liked }" :disabled="busy" @click="toggleLike">
           👍 {{ article.liked ? '已赞' : '赞' }} ({{ article.likeCount }})
         </button>
-        <button v-if="canBookmark" class="pa-btn" :class="{ on: article.bookmarked }" :disabled="busy" @click="toggleBookmark">
+        <button v-if="!article.mine && canBookmark" class="pa-btn" :class="{ on: article.bookmarked }" :disabled="busy" @click="toggleBookmark">
           🔖 {{ article.bookmarked ? '已收藏' : '收藏' }}
         </button>
-        <button v-if="canCollect" class="pa-btn" :class="{ on: article.collected }" :disabled="busy" @click="toggleCollect">
+        <button v-if="!article.mine && canCollect" class="pa-btn" :class="{ on: article.collected }" :disabled="busy" @click="toggleCollect">
           📥 {{ article.collected ? '已收录' : '收录到我的知识库' }}
         </button>
+        <button class="pa-btn" @click="shareCardOpen = true">📤 分享</button>
       </div>
 
       <!-- 评论区 -->
@@ -309,4 +312,15 @@ async function removeComment(c: Comment) {
       </div>
     </div>
   </div>
+
+  <ShareCardModal
+    v-if="article"
+    :open="shareCardOpen"
+    :article-id="article.id"
+    :title="article.title"
+    :summary="article.summary"
+    :tags="article.tags"
+    :author-nickname="article.ownerNickname ?? undefined"
+    @close="shareCardOpen = false"
+  />
 </template>

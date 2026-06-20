@@ -82,6 +82,9 @@ importers:
       '@cnotes/types':
         specifier: workspace:*
         version: link:../../packages/types
+      qrcode-generator:
+        specifier: ^2.0.4
+        version: 2.0.4
       vue:
         specifier: ^3.5.13
         version: 3.5.38(typescript@5.9.3)
@@ -1010,6 +1013,9 @@ packages:
   prompts@2.4.2:
     resolution: {integrity: sha512-NxNv/kLguCA7p3jE8oL2aEBsrJWgAakBpgmgK6lpPWV+WuOmY6r2/zbAVnP+T8bQlA0nzHXSJSJW0Hq7ylaD2Q==}
     engines: {node: '>= 6'}
+
+  qrcode-generator@2.0.4:
+    resolution: {integrity: sha512-mZSiP6RnbHl4xL2Ap5HfkjLnmxfKcPWpWe/c+5XxCuetEenqmNFf1FH/ftXPCtFG5/TDobjsjz6sSNL0Sr8Z9g==}
 
   react-refresh@0.13.0:
     resolution: {integrity: sha512-XP8A9BT0CpRBD+NYLLeIhld/RqG9+gktUjW1FkE+Vm7OCinbG1SshcK5tb9ls4kzvjZr9mOQc7HYgBngEyPAXg==}
@@ -2126,6 +2132,8 @@ snapshots:
     dependencies:
       kleur: 3.0.3
       sisteransi: 1.0.5
+
+  qrcode-generator@2.0.4: {}
 
   react-refresh@0.13.0: {}
 
