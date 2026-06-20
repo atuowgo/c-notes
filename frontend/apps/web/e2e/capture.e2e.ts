@@ -18,7 +18,7 @@ test('截图:收件箱', async ({ page }) => {
 
 test('截图:阅读页 + 关联推荐(为什么相关)', async ({ page }) => {
   await page.goto('/');
-  await page.locator('.card', { hasText: 'Attention Is All You Need' }).click();
+  await page.locator('.card', { hasText: 'Attention Is All You Need:重读经典' }).click();
   await expect(page.locator('.r-title')).toBeVisible();
   await expect(page.locator('.recommend .rec-item').first()).toBeVisible();
   await page.locator('.recommend').scrollIntoViewIfNeeded();
@@ -28,7 +28,7 @@ test('截图:阅读页 + 关联推荐(为什么相关)', async ({ page }) => {
 test('截图:深聊三源(📄 本文 + 🕸 知识网,Ark 向量库命中)', async ({ page }) => {
   await page.goto('/');
   // 锚定一篇「深度学习」簇里的文章,确保 🕸 命中。
-  await page.locator('.card', { hasText: 'Attention Is All You Need' }).click();
+  await page.locator('.card', { hasText: 'Attention Is All You Need:重读经典' }).click();
   await page.getByRole('button', { name: /深聊/ }).click();
   const box = page.locator('.chat-input textarea');
   await box.fill('这篇和深度学习的整体脉络有什么关系?');
@@ -39,6 +39,34 @@ test('截图:深聊三源(📄 本文 + 🕸 知识网,Ark 向量库命中)', as
   await expect(srcs).toContainText('🕸', { timeout: 90_000 });
   expect((await srcs.innerText())).toContain('📄');
   await page.screenshot({ path: shot('03-deepchat-sources.png'), fullPage: true });
+});
+
+test('截图:深聊联网发现 → 一键收藏(🌐 发现卡 + 收藏按钮)', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.card', { hasText: 'Attention Is All You Need:重读经典' }).click();
+  await page.getByRole('button', { name: /深聊/ }).click();
+  const box = page.locator('.chat-input textarea');
+  const discoveries = page.locator('.msg.ai .discoveries').first();
+  // 是否联网由模型决定,最多追问 3 次直到出现 🌐 发现卡。
+  const prompts = [
+    '请使用联网搜索工具,实际联网检索 Transformer 神经网络模型的权威资料,并给我几个可以收藏的网页链接(必须真正联网,不要只用你已有的知识)。',
+    '请务必调用你的联网搜索能力,查 Transformer 模型的相关网页,并列出可收藏的链接。',
+    '联网搜一下 large language model,把找到的网页链接列出来给我收藏。',
+  ];
+  for (const p of prompts) {
+    await box.fill(p);
+    await box.press('Enter');
+    try {
+      await expect(discoveries).toBeVisible({ timeout: 110_000 });
+      break;
+    } catch { /* 换更强措辞重试 */ }
+  }
+  await expect(discoveries).toBeVisible();
+  // 收藏首条,留下「✓ 已收」证据后再截图。
+  const firstCollect = discoveries.locator('.disc .disc-collect').first();
+  await firstCollect.click();
+  await expect(firstCollect).toContainText('已收', { timeout: 30_000 });
+  await page.screenshot({ path: shot('08-deepchat-collect.png'), fullPage: true });
 });
 
 test('截图:知识网主题簇列表', async ({ page }) => {

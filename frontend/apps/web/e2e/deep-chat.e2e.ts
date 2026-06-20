@@ -14,7 +14,7 @@ test('深聊:浏览器穿过 nginx→后端→向量库→DeepSeek,回复带 �
   await page.goto('/');
 
   // 收件箱加载出已就绪的「Attention Is All You Need」卡片(done 才可点开)。
-  const card = page.locator('.card', { hasText: 'Attention Is All You Need' });
+  const card = page.locator('.card', { hasText: 'Attention Is All You Need:重读经典' });
   await expect(card).toBeVisible();
   await expect(card).toHaveAttribute('data-clickable', '1');
   await card.click();

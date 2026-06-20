@@ -128,11 +128,19 @@ export interface ComposeReply {
   draft: string;
 }
 
-/** 深聊一轮回复:会话 id + 助手回复 + 本轮实际启用的源标签(📄 本文 / 🕸 知识网 / 🌐 联网) */
+/** 联网搜索发现的一条网页结果(深聊源 🌐),可一键收藏进知识网 */
+export interface ChatDiscovery {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+/** 深聊一轮回复:会话 id + 助手回复 + 本轮实际启用的源标签(📄 本文 / 🕸 知识网 / 🌐 联网)+ 联网发现(可一键收藏) */
 export interface ChatReply {
   sessionId: string;
   reply: string;
   sources: string[];
+  discoveries?: ChatDiscovery[];
 }
 
 /** 深聊消息(对齐后端 chat_message:role + 正文 + 源标签) */

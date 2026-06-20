@@ -275,6 +275,19 @@ mark.hl:hover { background: linear-gradient(180deg, transparent 55%, #ffd47e 55%
 .msg.me { background: var(--gold); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
 .msg .srcs { margin-top: 9px; display: flex; gap: 6px; flex-wrap: wrap; }
 .msg .srcs span { font-size: 11px; padding: 2px 7px; border-radius: 6px; background: #f3efe7; color: var(--ink-soft); border: 1px solid var(--line); }
+
+/* 联网发现:深聊里可一键收藏的网页结果 */
+.msg .discoveries { margin-top: 11px; border-top: 1px dashed var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.disc-hd { font-size: 11px; font-weight: 600; color: var(--ink-faint); }
+.disc { display: flex; align-items: flex-start; gap: 8px; background: #fafbff; border: 1px solid #e2e6f0; border-radius: 9px; padding: 8px 10px; }
+.disc-main { flex: 1; min-width: 0; }
+.disc-title { font-size: 13px; font-weight: 600; color: #2a5db0; text-decoration: none; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.disc-title:hover { text-decoration: underline; }
+.disc-snip { font-size: 12px; color: var(--ink-soft); margin-top: 3px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.disc-collect { flex: none; align-self: center; border: 1px solid var(--gold); background: var(--gold-soft); color: var(--gold); border-radius: 7px; padding: 4px 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.disc-collect:hover:not(:disabled) { background: var(--gold); color: #fff; }
+.disc-collect.done { border-color: #4a9; background: #eafaf2; color: #2a8; cursor: default; }
+.disc-collect:disabled { cursor: default; }
 .chat-input { padding: 12px; border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: flex-end; background: var(--surface); }
 .chat-input textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 11px; padding: 9px 12px; font-family: inherit; font-size: 14px; max-height: 90px; outline: none; line-height: 1.5; }
 .chat-input textarea:focus { border-color: var(--gold); }

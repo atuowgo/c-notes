@@ -1,5 +1,6 @@
 package com.cnotes.chat;
 
+import com.cnotes.chat.dto.ChatDiscovery;
 import com.cnotes.chat.dto.ChatReply;
 import com.cnotes.chat.dto.ChatRequest;
 import com.cnotes.chat.entity.ChatMessage;
@@ -58,12 +59,25 @@ public class ChatService {
         if (ctx.systemText() != null && !ctx.systemText().isBlank()) {
             spec = spec.system(ctx.systemText());
         }
-        String reply = spec.user(message).tools(webSearchTool).call().content();
+
+        // 捕获本轮 LLM 通过 WebSearchTool 联网发现的网页(标题/链接/摘要),供前端一键收藏。
+        String reply;
+        List<ChatDiscovery> discoveries;
+        webSearchTool.beginCapture();
+        try {
+            reply = spec.user(message).tools(webSearchTool).call().content();
+        } finally {
+            discoveries = webSearchTool.drainCaptured();
+        }
+        // 模型实际调用了联网工具且有结果,才追加 🌐 源标签。
+        if (!discoveries.isEmpty() && !ctx.sources().contains("🌐")) {
+            ctx.sources().add("🌐");
+        }
 
         persist(session.getId(), "user", message, null);
         persist(session.getId(), "assistant", reply, writeSources(ctx.sources()));
 
-        return new ChatReply(session.getId(), reply, ctx.sources());
+        return new ChatReply(session.getId(), reply, ctx.sources(), discoveries);
     }
 
     private ChatSession ensureSession(String articleId, String sessionId, String message) {

@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 
 test('关联:阅读页「顺着这篇继续探索」展示后端关联(为什么相关)', async ({ page }) => {
   await page.goto('/');
-  const card = page.locator('.card', { hasText: 'Attention Is All You Need' });
+  const card = page.locator('.card', { hasText: 'Attention Is All You Need:重读经典' });
   await expect(card).toBeVisible();
   await card.click();
 

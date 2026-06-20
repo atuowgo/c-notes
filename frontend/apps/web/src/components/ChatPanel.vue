@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
+import type { ChatDiscovery } from '@cnotes/types';
 import { api } from '../api';
 import { ApiError } from '@cnotes/api-client';
 import { askIntent } from '../chat';
+import { toast } from '../toast';
 
 // AI 深聊入口(§6.5):围绕锚定文章发起一轮对话,后端三源(本文/知识网/联网)综合回答。
 const props = defineProps<{ articleId?: string | null; articleTitle?: string | null }>();
@@ -11,6 +13,26 @@ interface Msg {
   role: 'ai' | 'me';
   text: string;
   srcs?: string[];
+  discoveries?: ChatDiscovery[];
+}
+
+// 收藏状态按 url 跟踪:'collecting' 进行中 / 'done' 已入库。
+const collectState = ref<Record<string, 'collecting' | 'done'>>({});
+
+async function collectDiscovery(d: ChatDiscovery) {
+  if (!d.url || collectState.value[d.url]) return;
+  collectState.value = { ...collectState.value, [d.url]: 'collecting' };
+  try {
+    await api.collect({ url: d.url, title: d.title || undefined, sourceType: 'browser' });
+    collectState.value = { ...collectState.value, [d.url]: 'done' };
+    toast('已收进知识网,正在抓取整理…');
+  } catch (e) {
+    const msg = e instanceof ApiError ? `收藏失败(${e.status})` : '收藏失败,请稍后重试。';
+    const next = { ...collectState.value };
+    delete next[d.url];
+    collectState.value = next;
+    toast(msg);
+  }
 }
 
 const open = ref(false);
@@ -62,7 +84,12 @@ async function sendMessage(text: string, articleId?: string, noteId?: string) {
   try {
     const reply = await api.chat(articleId, { message: text, sessionId: sessionId.value, noteId });
     sessionId.value = reply.sessionId;
-    messages.value.push({ role: 'ai', text: reply.reply, srcs: reply.sources });
+    messages.value.push({
+      role: 'ai',
+      text: reply.reply,
+      srcs: reply.sources,
+      discoveries: reply.discoveries?.length ? reply.discoveries : undefined,
+    });
   } catch (e) {
     const msg = e instanceof ApiError ? `出错了(${e.status})` : '网络异常,请稍后重试。';
     messages.value.push({ role: 'ai', text: msg });
@@ -117,6 +144,25 @@ watch(askIntent, (intent) => {
       <div v-for="(m, i) in messages" :key="i" class="msg" :class="m.role">
         {{ m.text }}
         <div v-if="m.srcs" class="srcs"><span v-for="s in m.srcs" :key="s">{{ s }}</span></div>
+
+        <!-- 联网发现:每条可一键收进知识网(产品设计 §2) -->
+        <div v-if="m.discoveries" class="discoveries">
+          <div class="disc-hd">🌐 联网发现 · 可一键收藏</div>
+          <div v-for="d in m.discoveries" :key="d.url" class="disc">
+            <div class="disc-main">
+              <a class="disc-title" :href="d.url" target="_blank" rel="noopener">{{ d.title || d.url }}</a>
+              <div v-if="d.snippet" class="disc-snip">{{ d.snippet }}</div>
+            </div>
+            <button
+              class="disc-collect"
+              :class="{ done: collectState[d.url] === 'done' }"
+              :disabled="!!collectState[d.url]"
+              @click="collectDiscovery(d)"
+            >
+              {{ collectState[d.url] === 'done' ? '✓ 已收' : collectState[d.url] === 'collecting' ? '…' : '＋ 收藏' }}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
