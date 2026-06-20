@@ -24,6 +24,10 @@ export interface ArticleDetail extends ArticleCard {
   url?: string;
   content?: string;
   keyPoints: string[];
+  /** 逐篇覆盖的分享级别;不传/null 表示继承账号默认(多用户阶段 2) */
+  shareLevel?: string | null;
+  /** 生效分享级别 = shareLevel ?? 账号默认(供分享控件回显) */
+  effectiveShareLevel?: string;
 }
 
 /** 收集提交载荷(浏览器插件 / 手动收藏均用此) */
@@ -171,3 +175,55 @@ export interface CurrentUser {
 
 /** 三方登录渠道 */
 export type AuthProvider = 'github' | 'google' | 'wechat';
+
+/** 分享级别(单调递增,能力随级别累加)。与后端 ShareLevel enum 对齐 */
+export type ShareLevel =
+  | 'PRIVATE'
+  | 'READ_ONLY'
+  | 'BOOKMARKABLE'
+  | 'COLLECTABLE'
+  | 'ANNOTATABLE'
+  | 'COMMENTABLE';
+
+/** 公开文章视图(匿名只读;多用户阶段 2)。仅含公开安全字段 */
+export interface PublicArticle {
+  id: string;
+  title?: string;
+  author?: string;
+  summary?: string;
+  content?: string;
+  url?: string;
+  keyPoints: string[];
+  tags?: string[];
+  createTime: string;
+  /** 来源作者(发布者) */
+  ownerId: string;
+  ownerNickname?: string | null;
+  ownerAvatarUrl?: string | null;
+  /** 生效分享级别:决定渐进显示哪些操作 */
+  effectiveShareLevel: ShareLevel;
+  /** 当前查看者(若已登录)对本文的互动态 */
+  bookmarked: boolean;
+  collected: boolean;
+  /** 是否本人文章 */
+  mine: boolean;
+}
+
+/** 收录卡片(渲染进收件箱,带「收录自 X」角标;多用户阶段 2) */
+export interface CollectedCard {
+  /** 收录记录 id(列表 key) */
+  id: string;
+  /** 源文章 id;原文撤回时为空 */
+  articleId?: string | null;
+  title?: string;
+  summary?: string;
+  author?: string;
+  sourceType?: SourceType;
+  tags?: string[];
+  /** 源作者昵称 */
+  collectedFrom?: string | null;
+  personalNote?: string | null;
+  sourceWithdrawn: boolean;
+  /** 收录时间 */
+  createTime: string;
+}

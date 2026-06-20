@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, useTemplateRef, onMounted, onUnmounted } from 'vue';
-import type { ArticleDetail, CurrentUser } from '@cnotes/types';
+import type { ArticleDetail, CurrentUser, ShareLevel } from '@cnotes/types';
 import InboxView from './views/InboxView.vue';
 import ReaderView from './views/ReaderView.vue';
 import ClustersView from './views/ClustersView.vue';
 import ClusterDetailView from './views/ClusterDetailView.vue';
+import PublicArticleView from './views/PublicArticleView.vue';
 import CollectModal from './components/CollectModal.vue';
 import ChatPanel from './components/ChatPanel.vue';
 import IdeasDrawer from './components/IdeasDrawer.vue';
@@ -12,6 +13,7 @@ import ComposeModal from './components/ComposeModal.vue';
 import Toast from './components/Toast.vue';
 import LoginModal from './components/LoginModal.vue';
 import UserMenu from './components/UserMenu.vue';
+import ShareSettingsModal from './components/ShareSettingsModal.vue';
 import { loadNotes } from './notes';
 import { api } from './api';
 
@@ -20,6 +22,7 @@ type Tab = 'inbox' | 'clusters';
 const tab = ref<Tab>('inbox');
 const openClusterId = ref<string | null>(null);
 const openId = ref<string | null>(null); // 文章阅读器,优先级最高
+const openPublicId = ref<string | null>(null); // 公开文章只读视图(收录卡片 / 公开链接进入)
 const currentArticle = ref<ArticleDetail | null>(null);
 const collectOpen = ref(false);
 const drawer = ref<{ scope: 'article' | 'all' } | null>(null);
@@ -28,6 +31,7 @@ const inbox = useTemplateRef<InstanceType<typeof InboxView>>('inbox');
 
 const user = ref<CurrentUser | null>(null);
 const loginOpen = ref(false);
+const shareSettingsOpen = ref(false);
 
 function openCompose(noteId: string) {
   composeNoteIds.value = [noteId];
@@ -41,6 +45,13 @@ function closeReader() {
   currentArticle.value = null;
   window.scrollTo(0, 0);
 }
+function openPublic(id: string) {
+  openPublicId.value = id;
+}
+function closePublic() {
+  openPublicId.value = null;
+  window.scrollTo(0, 0);
+}
 function go(t: Tab) {
   tab.value = t;
   openClusterId.value = null;
@@ -51,9 +62,11 @@ function go(t: Tab) {
 function onKey(e: KeyboardEvent) {
   if (e.key !== 'Escape') return;
   if (loginOpen.value) loginOpen.value = false;
+  else if (shareSettingsOpen.value) shareSettingsOpen.value = false;
   else if (composeNoteIds.value) composeNoteIds.value = null;
   else if (drawer.value) drawer.value = null;
   else if (collectOpen.value) collectOpen.value = false;
+  else if (openPublicId.value) closePublic();
   else if (openId.value) closeReader();
   else if (openClusterId.value) openClusterId.value = null;
 }
@@ -61,6 +74,9 @@ onMounted(async () => {
   document.addEventListener('keydown', onKey);
   loadNotes();
   user.value = await api.me();
+  // 公开链接深链:?a=<id> 直接打开公开文章只读视图。
+  const a = new URLSearchParams(window.location.search).get('a');
+  if (a) openPublic(a);
 });
 onUnmounted(() => document.removeEventListener('keydown', onKey));
 </script>
@@ -76,15 +92,29 @@ onUnmounted(() => document.removeEventListener('keydown', onKey));
       <div class="spacer"></div>
       <button class="add-btn" @click="collectOpen = true">＋ 收藏链接</button>
       <button class="icon-btn" title="全部想法" @click="drawer = { scope: 'all' }">💡</button>
-      <UserMenu v-if="user" :user="user" @logout="user = null" />
+      <UserMenu
+        v-if="user"
+        :user="user"
+        @logout="user = null"
+        @open-share-settings="shareSettingsOpen = true"
+      />
       <button v-else class="login-entry-btn" @click="loginOpen = true">登录</button>
     </div>
   </div>
 
-  <!-- 阅读器叠加层(最高优先级) -->
+  <!-- 公开文章只读叠加层(最高优先级) -->
+  <PublicArticleView
+    v-if="openPublicId"
+    :id="openPublicId"
+    :logged-in="!!user"
+    @back="closePublic"
+    @login="loginOpen = true"
+  />
+  <!-- 阅读器叠加层 -->
   <ReaderView
-    v-if="openId"
+    v-else-if="openId"
     :id="openId"
+    :account-default="(user?.defaultShareLevel as ShareLevel | undefined)"
     @back="closeReader"
     @open="openReader"
     @open-ideas="drawer = { scope: 'article' }"
@@ -99,7 +129,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKey));
   />
   <!-- 主视图 -->
   <template v-else>
-    <InboxView v-if="tab === 'inbox'" ref="inbox" @open="openReader" />
+    <InboxView v-if="tab === 'inbox'" ref="inbox" @open="openReader" @open-public="openPublic" />
     <ClustersView v-if="tab === 'clusters'" @open="openClusterId = $event" />
   </template>
 
@@ -125,5 +155,12 @@ onUnmounted(() => document.removeEventListener('keydown', onKey));
     :open="loginOpen"
     @close="loginOpen = false"
     @logged-in="user = $event; loginOpen = false"
+  />
+  <ShareSettingsModal
+    v-if="user"
+    :open="shareSettingsOpen"
+    :user="user"
+    @close="shareSettingsOpen = false"
+    @saved="user = $event"
   />
 </template>

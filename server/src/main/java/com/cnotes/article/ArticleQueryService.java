@@ -6,6 +6,7 @@ import com.cnotes.article.dto.*;
 import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
 import com.cnotes.auth.UserContext;
+import com.cnotes.share.ShareService;
 import com.cnotes.tag.entity.ArticleTag;
 import com.cnotes.tag.entity.Tag;
 import com.cnotes.tag.mapper.ArticleTagMapper;
@@ -27,6 +28,7 @@ public class ArticleQueryService {
     private final ArticleMapper articleMapper;
     private final ArticleTagMapper articleTagMapper;
     private final TagMapper tagMapper;
+    private final ShareService shareService;
     private final ObjectMapper om;
 
     /** 分页收件箱:page 从 1 起,size 默认调用方给定;此处兜底夹取到 [1,100]。 */
@@ -57,6 +59,8 @@ public class ArticleQueryService {
         d.setSourceType(a.getSourceType()); d.setUrl(a.getUrl());
         d.setKeyPoints(parsePoints(a.getKeyPoints()));
         d.setTags(tagsByArticle(List.of(a.getId())).getOrDefault(a.getId(), List.of()));
+        d.setShareLevel(a.getShareLevel());                                  // 逐篇覆盖(可空=继承)
+        d.setEffectiveShareLevel(shareService.effectiveLevel(a).name());     // 生效级别(供分享控件回显)
         return d;
     }
 

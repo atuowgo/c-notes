@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
-import type { ArticleDetail, TagSuggestion } from '@cnotes/types';
+import type { ArticleDetail, ShareLevel, TagSuggestion } from '@cnotes/types';
 import { api } from '../api';
 import { srcLabel } from '../format';
 import { toast } from '../toast';
 import { addNote, notesForArticle, loadNotes } from '../notes';
 import DistillCard from '../components/DistillCard.vue';
 import RecommendList from '../components/RecommendList.vue';
+import ShareControl from '../components/ShareControl.vue';
 
-const props = defineProps<{ id: string }>();
+const props = defineProps<{ id: string; accountDefault?: ShareLevel }>();
 const emit = defineEmits<{
   back: [];
   open: [id: string];
@@ -192,6 +193,16 @@ function cancelNote() {
   compose.value = null;
   pending = null;
 }
+
+// 逐篇分享级别改完即时回显到本文详情。
+function onShareUpdated(payload: { shareLevel: string | null; effectiveLevel: ShareLevel }) {
+  if (!article.value) return;
+  article.value = {
+    ...article.value,
+    shareLevel: payload.shareLevel,
+    effectiveShareLevel: payload.effectiveLevel,
+  };
+}
 </script>
 
 <template>
@@ -199,6 +210,14 @@ function cancelNote() {
     <div class="r-top">
       <button class="back" @click="emit('back')">← 返回收件箱</button>
       <div class="r-top-actions">
+        <ShareControl
+          v-if="article"
+          :article-id="article.id"
+          :share-level="article.shareLevel"
+          :effective-level="(article.effectiveShareLevel as ShareLevel | undefined)"
+          :account-default="accountDefault"
+          @updated="onShareUpdated"
+        />
         <button v-if="article" class="refresh-btn" :disabled="refreshing" @click="refreshArticle">
           {{ refreshing ? '刷新中…' : '🔄 刷新正文' }}
         </button>

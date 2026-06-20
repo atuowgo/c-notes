@@ -10,6 +10,7 @@ public class Article {
     @TableId(type = IdType.ASSIGN_UUID)
     private String id;
     private String ownerId;       // 所有者 app_user.id(多用户隔离)
+    private String shareLevel;    // 逐篇覆盖账号默认;NULL=继承 owner.defaultShareLevel
     private String url;
     private String urlHash;
     private String title;

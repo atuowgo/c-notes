@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import type { ArticleCard as ArticleCardModel } from '@cnotes/types';
+import type { ArticleCard as ArticleCardModel, CollectedCard } from '@cnotes/types';
 import { api } from '../api';
+import { relTime } from '../format';
 import ArticleCard from '../components/ArticleCard.vue';
 import TagFilter from '../components/TagFilter.vue';
 
-const emit = defineEmits<{ open: [id: string] }>();
+const emit = defineEmits<{ open: [id: string]; openPublic: [id: string] }>();
 
 const items = ref<ArticleCardModel[]>([]);
+const collected = ref<CollectedCard[]>([]);
 const loading = ref(true);
 const error = ref('');
 const readIds = ref<Set<string>>(new Set());
@@ -29,7 +31,10 @@ async function load() {
   loading.value = true;
   error.value = '';
   try {
-    items.value = await api.listInbox();
+    // 收件箱 = 我收藏的文章 + 我收录的他人文章(后者带「收录自」角标)。
+    const [inbox, cols] = await Promise.all([api.listInbox(), api.listCollections().catch(() => [])]);
+    items.value = inbox;
+    collected.value = cols;
     if (activeTag.value !== 'all' && !allTags.value.includes(activeTag.value)) {
       activeTag.value = 'all';
     }
@@ -45,6 +50,14 @@ function onOpen(id: string) {
   emit('open', id);
 }
 
+// 收录卡片只在「全部」视图展示(私有标签筛选属于自己的文章体系)。
+const showCollected = computed(() => activeTag.value === 'all' && collected.value.length > 0);
+
+function openCollected(c: CollectedCard) {
+  if (c.sourceWithdrawn || !c.articleId) return;
+  emit('openPublic', c.articleId);
+}
+
 onMounted(load);
 defineExpose({ load });
 </script>
@@ -57,11 +70,38 @@ defineExpose({ load });
 
     <div v-if="loading" class="empty">加载中…</div>
     <div v-else-if="error" class="empty">加载失败:{{ error }}<br />请确认后端已启动。</div>
-    <div v-else-if="!filtered.length" class="empty">
+    <div v-else-if="!filtered.length && !showCollected" class="empty">
       <template v-if="activeTag !== 'all'">该标签下还没有文章。</template>
       <template v-else>收件箱还是空的。<br />点右上角「＋ 收藏链接」加一篇试试。</template>
     </div>
     <template v-else>
+      <!-- 收录的他人文章:带「收录自」角标 -->
+      <div
+        v-for="c in (showCollected ? collected : [])"
+        :key="c.id"
+        class="card collected-card"
+        :data-clickable="c.sourceWithdrawn ? null : '1'"
+        @click="openCollected(c)"
+      >
+        <div class="collected-badge">📥 收录自 {{ c.collectedFrom || '某人' }}</div>
+        <template v-if="c.sourceWithdrawn">
+          <h3 class="c-title withdrawn">(原文已撤回)</h3>
+          <p v-if="c.personalNote" class="c-summary">我的笔记:{{ c.personalNote }}</p>
+        </template>
+        <template v-else>
+          <h3 class="c-title">{{ c.title || '(未命名)' }}</h3>
+          <div class="c-meta">
+            <template v-if="c.author"><span>{{ c.author }}</span><span>·</span></template>
+            <span>{{ relTime(c.createTime) }}</span>
+          </div>
+          <p v-if="c.personalNote" class="c-summary note">我的笔记:{{ c.personalNote }}</p>
+          <p v-else-if="c.summary" class="c-summary">{{ c.summary }}</p>
+          <div v-if="c.tags && c.tags.length" class="c-tags">
+            <span v-for="t in c.tags" :key="t" class="tag">{{ t }}</span>
+          </div>
+        </template>
+      </div>
+
       <ArticleCard
         v-for="a in filtered"
         :key="a.id"

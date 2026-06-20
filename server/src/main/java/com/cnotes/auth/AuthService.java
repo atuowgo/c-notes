@@ -51,4 +51,14 @@ public class AuthService {
     public User get(String userId) {
         return userId == null ? null : userMapper.selectById(userId);
     }
+
+    /** 更新账号默认分享级别(分享设置);非法值规范化为 PRIVATE。返回更新后的用户。 */
+    @Transactional
+    public User updateDefaultShareLevel(String userId, String level) {
+        User u = userMapper.selectById(userId);
+        if (u == null) return null;
+        u.setDefaultShareLevel(ShareLevel.parse(level).name());
+        userMapper.updateById(u);
+        return u;
+    }
 }

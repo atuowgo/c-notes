@@ -468,3 +468,66 @@ mark.hl:hover { background: linear-gradient(180deg, transparent 55%, #ffd47e 55%
 }
 .um-item--danger { color: var(--red); }
 .um-item--danger:hover:not(:disabled) { background: #f7e9e6; color: var(--red); }
+
+/* ============ 阶段 2:分享设置 / 逐篇分享 / 公开操作 / 收录卡片 ============ */
+
+/* 分享设置弹窗 */
+.share-box { max-width: 440px; }
+.share-opt {
+  display: flex; align-items: flex-start; gap: 10px; padding: 11px 12px; margin-top: 8px;
+  border: 1px solid var(--line); border-radius: 11px; cursor: pointer; transition: .14s;
+}
+.share-opt:hover { border-color: #dccfb8; background: var(--bg); }
+.share-opt.on { border-color: var(--gold); background: var(--gold-soft); }
+.share-opt input { margin-top: 3px; accent-color: var(--gold); }
+.share-opt-main { display: flex; flex-direction: column; gap: 2px; }
+.share-opt-label { font-size: 14px; font-weight: 600; color: var(--ink); }
+.share-opt-desc { font-size: 12px; color: var(--ink-faint); }
+
+/* 阅读页:逐篇分享控件 */
+.share-ctl { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+.share-btn {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px;
+  font-size: 13px; font-weight: 600; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 5px;
+}
+.share-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-soft); }
+.share-btn .caret { font-size: 10px; }
+.copy-link-btn {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 999px;
+  width: 32px; height: 32px; display: grid; place-items: center; font-size: 14px; color: var(--ink-soft);
+}
+.copy-link-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-soft); }
+.share-mask { position: fixed; inset: 0; z-index: 44; }
+.share-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 45; min-width: 210px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(40, 33, 22, .16); overflow: hidden; padding: 4px;
+}
+.share-mi {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; text-align: left;
+  border: none; background: none; padding: 9px 11px; border-radius: 8px; font-size: 13.5px; color: var(--ink); cursor: pointer;
+}
+.share-mi:hover { background: var(--gold-soft); color: var(--gold); }
+.share-mi.on { color: var(--gold); font-weight: 700; }
+.share-mi.on::after { content: '✓'; }
+.share-mi-sub { font-size: 11.5px; color: var(--ink-faint); font-weight: 500; }
+.share-menu-div { height: 1px; background: var(--line); margin: 4px 0; }
+
+/* 公开文章底部操作条 */
+.public-actions {
+  margin: 32px 0 0; padding-top: 20px; border-top: 1px solid var(--line);
+  display: flex; gap: 10px; flex-wrap: wrap;
+}
+.pa-btn {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 9px 18px;
+  font-size: 14px; font-weight: 600; color: var(--ink-soft); transition: .14s;
+}
+.pa-btn:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); background: var(--gold-soft); }
+.pa-btn.on { border-color: var(--gold); color: var(--gold); background: var(--gold-soft); }
+.pa-btn:disabled { opacity: .55; cursor: default; }
+
+/* 收件箱:收录卡片 */
+.collected-card { border-left: 3px solid var(--gold); }
+.collected-badge { font-size: 12px; font-weight: 600; color: var(--gold); margin-bottom: 7px; }
+.collected-card .c-title.withdrawn { color: var(--ink-faint); font-style: italic; }
+.collected-card .c-summary.note { color: var(--ink); }

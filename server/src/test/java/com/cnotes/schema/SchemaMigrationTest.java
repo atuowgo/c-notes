@@ -33,4 +33,17 @@ class SchemaMigrationTest {
         assertThat(sys).isEqualTo(1);
     }
 
+    @Test
+    void shareAndCollectionTablesExistWithShareLevelColumn() {
+        Integer tables = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM information_schema.tables " +
+            "WHERE LOWER(table_name) IN ('bookmark','collection')", Integer.class);
+        assertThat(tables).isEqualTo(2);
+
+        Integer col = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM information_schema.columns " +
+            "WHERE LOWER(table_name) = 'article' AND LOWER(column_name) = 'share_level'", Integer.class);
+        assertThat(col).isEqualTo(1);
+    }
+
 }

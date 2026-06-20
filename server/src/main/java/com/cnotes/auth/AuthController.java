@@ -49,6 +49,15 @@ public class AuthController {
         return u == null ? null : UserDto.of(u);
     }
 
+    /** 更新账号默认分享级别(分享设置)。未登录返回 401。 */
+    @PutMapping("/share-settings")
+    public ResponseEntity<UserDto> updateShareSettings(@RequestBody Map<String, String> body) {
+        String uid = UserContext.currentRaw();
+        if (uid == null) return ResponseEntity.status(401).build();
+        User u = authService.updateDefaultShareLevel(uid, body.get("defaultShareLevel"));
+        return u == null ? ResponseEntity.status(404).build() : ResponseEntity.ok(UserDto.of(u));
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<Void> logout() {
         return ResponseEntity.noContent()

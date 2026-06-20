@@ -8,13 +8,16 @@ import type {
   ClusterCard,
   ClusterDetail,
   ClusterSuggestion,
+  CollectedCard,
   CollectRequest,
   CollectResponse,
   ComposeReply,
   CreateNoteRequest,
   Note,
+  PublicArticle,
   RelatedArticle,
   RelatedNote,
+  ShareLevel,
   TagSuggestion,
   UpdateNoteRequest,
 } from '@cnotes/types';
@@ -75,6 +78,20 @@ export interface CnotesClient {
   devLogin(handle: string, nickname?: string): Promise<CurrentUser>;
   /** 退出登录:清会话 cookie */
   logout(): Promise<void>;
+  /** 多用户阶段 2:更新账号默认分享级别(分享设置) */
+  updateShareSettings(defaultShareLevel: ShareLevel): Promise<CurrentUser>;
+  /** 多用户阶段 2:逐篇覆盖分享级别(仅本人);传 null 清除覆盖回到账号默认 */
+  setArticleShareLevel(id: string, shareLevel: ShareLevel | null): Promise<void>;
+  /** 多用户阶段 2:公开文章只读视图(免登录);私有/不存在抛 404 */
+  getPublicArticle(id: string): Promise<PublicArticle>;
+  /** 多用户阶段 2:收藏 / 取消收藏(轻量阅读列表) */
+  bookmark(id: string): Promise<void>;
+  unbookmark(id: string): Promise<void>;
+  /** 多用户阶段 2:收录到我的知识库 / 取消收录(链接引用 + 个人笔记) */
+  collectArticle(id: string, personalNote?: string): Promise<void>;
+  uncollectArticle(id: string): Promise<void>;
+  /** 多用户阶段 2:我收录的卡片(渲染进收件箱) */
+  listCollections(): Promise<CollectedCard[]>;
 }
 
 /**
@@ -189,5 +206,28 @@ export function createClient(baseUrl = ''): CnotesClient {
       request<CurrentUser>('/api/auth/dev-login', jsonBody('POST', { handle, nickname: nickname ?? handle })),
 
     logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
+
+    updateShareSettings: (defaultShareLevel) =>
+      request<CurrentUser>('/api/auth/share-settings', jsonBody('PUT', { defaultShareLevel })),
+
+    setArticleShareLevel: (id, shareLevel) =>
+      request<void>(`/api/articles/${encodeURIComponent(id)}/share-level`, jsonBody('PUT', { shareLevel })),
+
+    getPublicArticle: (id) =>
+      request<PublicArticle>(`/api/public/articles/${encodeURIComponent(id)}`),
+
+    bookmark: (id) =>
+      request<void>(`/api/articles/${encodeURIComponent(id)}/bookmark`, { method: 'POST' }),
+
+    unbookmark: (id) =>
+      request<void>(`/api/articles/${encodeURIComponent(id)}/bookmark`, { method: 'DELETE' }),
+
+    collectArticle: (id, personalNote) =>
+      request<void>(`/api/articles/${encodeURIComponent(id)}/collect`, jsonBody('POST', { personalNote })),
+
+    uncollectArticle: (id) =>
+      request<void>(`/api/articles/${encodeURIComponent(id)}/collect`, { method: 'DELETE' }),
+
+    listCollections: () => request<CollectedCard[]>('/api/collections'),
   };
 }
