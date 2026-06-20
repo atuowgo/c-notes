@@ -124,6 +124,36 @@ class WeChatApiTest {
     }
 
     @Test
+    void subscribeEventRepliesWelcome() throws Exception {
+        String ts = "1700000004", nonce = "n4";
+        String xml = "<xml><ToUserName><![CDATA[gh_official]]></ToUserName>"
+            + "<FromUserName><![CDATA[new_follower]]></FromUserName>"
+            + "<MsgType><![CDATA[event]]></MsgType>"
+            + "<Event><![CDATA[subscribe]]></Event></xml>";
+
+        mvc.perform(post("/wechat/callback")
+                .param("signature", sign(ts, nonce)).param("timestamp", ts).param("nonce", nonce)
+                .contentType("text/xml").content(xml))
+           .andExpect(status().isOk())
+           .andExpect(content().string(org.hamcrest.Matchers.containsString("欢迎来到知识炼金炉")));
+    }
+
+    @Test
+    void unsubscribeEventAcksWithSuccess() throws Exception {
+        String ts = "1700000005", nonce = "n5";
+        String xml = "<xml><ToUserName><![CDATA[gh_official]]></ToUserName>"
+            + "<FromUserName><![CDATA[leaver]]></FromUserName>"
+            + "<MsgType><![CDATA[event]]></MsgType>"
+            + "<Event><![CDATA[unsubscribe]]></Event></xml>";
+
+        mvc.perform(post("/wechat/callback")
+                .param("signature", sign(ts, nonce)).param("timestamp", ts).param("nonce", nonce)
+                .contentType("text/xml").content(xml))
+           .andExpect(status().isOk())
+           .andExpect(content().string("success"));
+    }
+
+    @Test
     void postRejectsBadSignature() throws Exception {
         mvc.perform(post("/wechat/callback")
                 .param("signature", "bad").param("timestamp", "1").param("nonce", "n")

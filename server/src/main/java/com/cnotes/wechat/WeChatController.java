@@ -30,9 +30,22 @@ public class WeChatController {
 
     @PostMapping(produces = MediaType.TEXT_XML_VALUE)
     public ResponseEntity<String> receive(@RequestParam(required = false) String signature,
+                                          @RequestParam(name = "msg_signature", required = false) String msgSignature,
                                           @RequestParam(required = false) String timestamp,
                                           @RequestParam(required = false) String nonce,
+                                          @RequestParam(name = "encrypt_type", required = false) String encryptType,
                                           @RequestBody String body) {
+        // 安全模式:encrypt_type=aes(或服务端已配 aes-key 且报文带 <Encrypt>)→ 走加解密路径,
+        // 验签用 msg_signature(含密文)。handleEncrypted 返回 null 表示验签/解密失败。
+        boolean secure = "aes".equalsIgnoreCase(encryptType)
+            || (wechat.secureModeEnabled() && body != null && body.contains("<Encrypt>"));
+        if (secure) {
+            String out = wechat.handleEncrypted(body, msgSignature, timestamp, nonce);
+            return out == null
+                ? ResponseEntity.status(HttpStatus.FORBIDDEN).build()
+                : ResponseEntity.ok(out);
+        }
+
         if (!wechat.verify(signature, timestamp, nonce)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
