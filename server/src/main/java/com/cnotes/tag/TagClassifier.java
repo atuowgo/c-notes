@@ -22,23 +22,26 @@ public class TagClassifier {
     private final TagSuggestionMapper suggestionMapper;
     private final TagMergeMapper tagMergeMapper;
 
-    public List<String> allowedTagNames() {
-        return tagMapper.selectList(null).stream().map(Tag::getName).toList();
+    /** 受控标签词表:私有标签池——只取该所有者自己的标签名,不跨用户泄露词表。 */
+    public List<String> allowedTagNames(String ownerId) {
+        return tagMapper.selectList(
+                Wrappers.<Tag>lambdaQuery().eq(Tag::getOwnerId, ownerId))
+            .stream().map(Tag::getName).toList();
     }
 
     /**
      * 把模型给的标签名落到该文章:命中受控标签 -> 建 article_tag 链接;未命中 -> 进待确认表。
-     * 与逐名 selectOne/selectCount 的旧实现行为等价(命中归类、未命中建议、链接/建议幂等),
-     * 但查询数与标签数解耦:固定 3 次查询(按名批量取标签、取本文已有链接、取本文已有建议),
+     * 多用户隔离:命中只在「该文所有者」的私有标签池内匹配,避免链到他人同名标签。
+     * 查询数与标签数解耦:固定 3 次查询(按名+所有者批量取标签、取本文已有链接、取本文已有建议),
      * 再用 Set.add 同时去重"库里已存在"与"本次入参重复",在内存里决策后插入。
      */
     @Transactional
-    public void apply(String articleId, List<String> modelTags) {
+    public void apply(String articleId, String ownerId, List<String> modelTags) {
         if (modelTags == null || modelTags.isEmpty()) return;
 
-        // 1) 一次按名批量取命中的受控标签:name -> Tag(同名取其一,沿用旧 selectOne 语义)
+        // 1) 一次按名 + 所有者批量取命中的受控标签:name -> Tag(私有池内同名唯一)
         Map<String, Tag> tagByName = tagMapper.selectList(
-                Wrappers.<Tag>lambdaQuery().in(Tag::getName, modelTags)).stream()
+                Wrappers.<Tag>lambdaQuery().eq(Tag::getOwnerId, ownerId).in(Tag::getName, modelTags)).stream()
             .collect(Collectors.toMap(Tag::getName, Function.identity(), (a, b) -> a));
 
         // 2) 本文已有的 article_tag(tagId 去重种子;含用户钉选,保留不动)

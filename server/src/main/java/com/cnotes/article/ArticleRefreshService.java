@@ -61,10 +61,10 @@ public class ArticleRefreshService {
         upd.setExtractMethod("refresh");
         // 尽力重织(LLM 不可用时不阻断正文/锚点更新)。
         try {
-            OrganizeResult r = organizer.organize(a.getTitle(), newContent, tagClassifier.allowedTagNames());
+            OrganizeResult r = organizer.organize(a.getTitle(), newContent, tagClassifier.allowedTagNames(a.getOwnerId()));
             upd.setSummary(r.summary());
             upd.setKeyPoints(om.writeValueAsString(r.keyPoints()));
-            tagClassifier.apply(articleId, r.tags());
+            tagClassifier.apply(articleId, a.getOwnerId(), r.tags());
             upd.setProcessedAt(LocalDateTime.now());
         } catch (Exception e) {
             log.warn("刷新后重织失败(正文/锚点已更新,综述保持原样)articleId={}: {}", articleId, e.toString());

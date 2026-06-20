@@ -33,10 +33,10 @@ public class ArticleProcessor {
     public void process(Article a) {
         try {
             resolveContent(a);   // 三级抓取:插件正文 → 模型清洗快照 → 服务器抓取
-            OrganizeResult r = organizer.organize(a.getTitle(), a.getContent(), tagClassifier.allowedTagNames());
+            OrganizeResult r = organizer.organize(a.getTitle(), a.getContent(), tagClassifier.allowedTagNames(a.getOwnerId()));
             a.setSummary(r.summary());
             a.setKeyPoints(objectMapper.writeValueAsString(r.keyPoints()));
-            tagClassifier.apply(a.getId(), r.tags());
+            tagClassifier.apply(a.getId(), a.getOwnerId(), r.tags());
             a.setStatus("done");
             a.setProcessedAt(LocalDateTime.now());
             a.setLastError(null);
