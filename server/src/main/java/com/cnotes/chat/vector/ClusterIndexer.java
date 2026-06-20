@@ -48,7 +48,9 @@ public class ClusterIndexer {
             .text(t.getLivingSummary())
             .metadata(Map.of(
                 "tagId", t.getId(),
-                "tagName", t.getName() == null ? "" : t.getName()))
+                "tagName", t.getName() == null ? "" : t.getName(),
+                // 多用户隔离:写入簇所有者,检索时据此过滤,避免跨用户串味。
+                "ownerId", t.getOwnerId() == null ? "" : t.getOwnerId()))
             .build();
         vectorStore.add(List.of(doc));
 

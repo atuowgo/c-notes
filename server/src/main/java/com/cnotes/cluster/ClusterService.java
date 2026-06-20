@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.cnotes.article.dto.ArticleCardDto;
 import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
+import com.cnotes.auth.UserContext;
 import com.cnotes.cluster.dto.ClusterCardDto;
 import com.cnotes.cluster.dto.ClusterDetailDto;
 import com.cnotes.cluster.dto.ClusterSuggestionDto;
@@ -330,12 +331,13 @@ public class ClusterService {
         articleTagMapper.insert(at);
     }
 
-    /** 同名复用,否则新建标签;返回标签 id。 */
+    /** 同名复用(私有标签池:按所有者范围内同名),否则新建标签;返回标签 id。 */
     private String findOrCreateTag(String name) {
+        String owner = UserContext.currentOrSystem();
         Tag existing = tagMapper.selectOne(
-            Wrappers.<Tag>lambdaQuery().eq(Tag::getName, name).last("LIMIT 1"));
+            Wrappers.<Tag>lambdaQuery().eq(Tag::getOwnerId, owner).eq(Tag::getName, name).last("LIMIT 1"));
         if (existing != null) return existing.getId();
-        Tag t = new Tag(); t.setName(name);
+        Tag t = new Tag(); t.setName(name); t.setOwnerId(owner);   // 私有标签池:归属当前用户
         tagMapper.insert(t);
         return t.getId();
     }

@@ -1,6 +1,7 @@
 package com.cnotes.tag;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.cnotes.auth.UserContext;
 import com.cnotes.tag.dto.TagSuggestionDto;
 import com.cnotes.tag.entity.ArticleTag;
 import com.cnotes.tag.entity.Tag;
@@ -39,11 +40,14 @@ public class TagSuggestionService {
     public TagSuggestionDto accept(String suggestionId) {
         TagSuggestion s = getOrThrow(suggestionId);
 
-        // 找到或新建受控标签
-        Tag tag = tagMapper.selectOne(Wrappers.<Tag>lambdaQuery().eq(Tag::getName, s.getName()));
+        // 找到或新建受控标签(私有标签池:按所有者范围内同名复用,新建归属当前用户)
+        String owner = UserContext.currentOrSystem();
+        Tag tag = tagMapper.selectOne(
+            Wrappers.<Tag>lambdaQuery().eq(Tag::getOwnerId, owner).eq(Tag::getName, s.getName()).last("LIMIT 1"));
         if (tag == null) {
             tag = new Tag();
             tag.setName(s.getName());
+            tag.setOwnerId(owner);
             tagMapper.insert(tag);
         }
 

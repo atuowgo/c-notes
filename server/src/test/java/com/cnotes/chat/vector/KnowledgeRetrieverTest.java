@@ -19,13 +19,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class KnowledgeRetrieverTest {
 
+    private static final String OWNER = "owner-1";
+
     private static SimpleVectorStore seeded(EmbeddingModel em) {
         SimpleVectorStore store = SimpleVectorStore.builder(em).build();
         store.add(List.of(
             Document.builder().id("cook").text("如何炖牛肉:火候、调味与时间的家常做法。")
-                .metadata(Map.of("tagId", "cook", "tagName", "烹饪")).build(),
+                .metadata(Map.of("tagId", "cook", "tagName", "烹饪", "ownerId", OWNER)).build(),
             Document.builder().id("space").text("火箭发动机推力与轨道力学的工程概览。")
-                .metadata(Map.of("tagId", "space", "tagName", "航天")).build()
+                .metadata(Map.of("tagId", "space", "tagName", "航天", "ownerId", OWNER)).build()
         ));
         return store;
     }
@@ -35,7 +37,7 @@ class KnowledgeRetrieverTest {
         SimpleVectorStore store = seeded(new ClusterIndexerTest.StubEmbeddingModel());
         KnowledgeRetriever r = new KnowledgeRetriever(store);
         // 用 cook 文档原文作查询 → stub 哈希向量相同 → 确定性命中 cook
-        var hits = r.retrieve("如何炖牛肉:火候、调味与时间的家常做法。", 1);
+        var hits = r.retrieve("如何炖牛肉:火候、调味与时间的家常做法。", 1, OWNER);
         assertThat(hits).hasSize(1);
         assertThat(hits.get(0).tagId()).isEqualTo("cook");
         assertThat(hits.get(0).tagName()).isEqualTo("烹饪");
@@ -46,15 +48,39 @@ class KnowledgeRetrieverTest {
     void emptyStoreDegradesToEmptyList() {
         SimpleVectorStore store = SimpleVectorStore.builder(new ClusterIndexerTest.StubEmbeddingModel()).build();
         KnowledgeRetriever r = new KnowledgeRetriever(store);
-        assertThat(r.retrieve("任意问题", 3)).isEmpty();
+        assertThat(r.retrieve("任意问题", 3, OWNER)).isEmpty();
     }
 
     @Test
-    void blankOrNullQueryReturnsEmpty() {
+    void blankOrNullQueryOrOwnerReturnsEmpty() {
         SimpleVectorStore store = seeded(new ClusterIndexerTest.StubEmbeddingModel());
         KnowledgeRetriever r = new KnowledgeRetriever(store);
-        assertThat(r.retrieve("  ", 3)).isEmpty();
-        assertThat(r.retrieve(null, 3)).isEmpty();
+        assertThat(r.retrieve("  ", 3, OWNER)).isEmpty();
+        assertThat(r.retrieve(null, 3, OWNER)).isEmpty();
+        assertThat(r.retrieve("有效问题", 3, null)).isEmpty();   // 无 owner 不召回(隔离)
+    }
+
+    @Test
+    void retrieveIsIsolatedByOwner() {
+        // 同一份簇综述,两个不同所有者各存一条;检索只返回各自所有者的那条,绝不串味。
+        SimpleVectorStore store = SimpleVectorStore.builder(new ClusterIndexerTest.StubEmbeddingModel()).build();
+        String text = "深入理解 LLM 推理优化:KV-cache 与投机解码。";
+        store.add(List.of(
+            Document.builder().id("alice-llm").text(text)
+                .metadata(Map.of("tagId", "alice-llm", "tagName", "LLM", "ownerId", "alice")).build(),
+            Document.builder().id("bob-llm").text(text)
+                .metadata(Map.of("tagId", "bob-llm", "tagName", "LLM", "ownerId", "bob")).build()
+        ));
+        KnowledgeRetriever r = new KnowledgeRetriever(store);
+
+        var aliceHits = r.retrieve(text, 5, "alice");
+        assertThat(aliceHits).extracting(KnowledgeRetriever.Hit::tagId).containsExactly("alice-llm");
+
+        var bobHits = r.retrieve(text, 5, "bob");
+        assertThat(bobHits).extracting(KnowledgeRetriever.Hit::tagId).containsExactly("bob-llm");
+
+        var strangerHits = r.retrieve(text, 5, "carol");
+        assertThat(strangerHits).isEmpty();   // 第三人看不到任何人的私有簇
     }
 
     @Test
@@ -68,7 +94,7 @@ class KnowledgeRetrieverTest {
         EmbeddingModel ark = new com.cnotes.chat.embedding.ArkEmbeddingModel(RestClient.builder(), props);
         KnowledgeRetriever r = new KnowledgeRetriever(seeded(ark));
 
-        var hits = r.retrieve("红烧牛肉怎么做更入味", 1);
+        var hits = r.retrieve("红烧牛肉怎么做更入味", 1, OWNER);
 
         assertThat(hits).hasSize(1);
         assertThat(hits.get(0).tagId()).isEqualTo("cook");

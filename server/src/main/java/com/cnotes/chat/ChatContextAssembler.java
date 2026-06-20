@@ -3,6 +3,7 @@ package com.cnotes.chat;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
+import com.cnotes.auth.UserContext;
 import com.cnotes.chat.vector.KnowledgeRetriever;
 import com.cnotes.note.entity.Note;
 import com.cnotes.note.mapper.NoteMapper;
@@ -69,8 +70,11 @@ public class ChatContextAssembler {
                 sb.append("要点:\n");
                 for (String p : points) sb.append(" - ").append(p).append("\n");
             }
+            // 多用户隔离:只取「我自己」的批注,避免把他人公开批注当成「我的批注」混入上下文。
             List<Note> notes = noteMapper.selectList(
-                Wrappers.<Note>lambdaQuery().eq(Note::getArticleId, articleId));
+                Wrappers.<Note>lambdaQuery()
+                    .eq(Note::getArticleId, articleId)
+                    .eq(Note::getOwnerId, UserContext.currentOrSystem()));
             if (!notes.isEmpty()) {
                 sb.append("【我的批注】\n");
                 for (Note n : notes) {
@@ -81,8 +85,9 @@ public class ChatContextAssembler {
             }
         }
 
-        // 源2:知识网向量检索
-        List<KnowledgeRetriever.Hit> hits = knowledgeRetriever.retrieve(question, knowledgeTopK);
+        // 源2:知识网向量检索(按当前用户隔离,只召回自己的簇综述)
+        List<KnowledgeRetriever.Hit> hits =
+            knowledgeRetriever.retrieve(question, knowledgeTopK, UserContext.currentOrSystem());
         if (hits != null && !hits.isEmpty()) {
             sources.add("🕸");
             sb.append("【知识网·相关主题沉淀】\n");

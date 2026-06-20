@@ -27,13 +27,21 @@ public class KnowledgeRetriever {
     /** 命中的一个簇:tagId / tagName / living_summary 正文 / 相似度分(可空)。 */
     public record Hit(String tagId, String tagName, String summary, Double score) {}
 
-    public List<Hit> retrieve(String query, int topK) {
-        if (query == null || query.isBlank()) return List.of();
+    /**
+     * 按 query 相似度召回当前用户(ownerId)自己的簇综述。
+     * 多用户隔离:SimpleVectorStore 是全库单例,这里超额召回后在内存按 metadata.ownerId 过滤,
+     * 再截断到 topK——不依赖底层向量库是否支持 filterExpression,保证不会命中他人私有综述。
+     */
+    public List<Hit> retrieve(String query, int topK, String ownerId) {
+        if (query == null || query.isBlank() || ownerId == null) return List.of();
         try {
+            int fetch = Math.max(topK * 5, 50);   // 超额召回,留足过滤余量
             List<Document> docs = vectorStore.similaritySearch(
-                SearchRequest.builder().query(query).topK(topK).build());
+                SearchRequest.builder().query(query).topK(fetch).build());
             if (docs == null) return List.of();
             return docs.stream()
+                .filter(d -> ownerId.equals(str(d.getMetadata().get("ownerId"))))
+                .limit(topK)
                 .map(d -> new Hit(
                     str(d.getMetadata().get("tagId")),
                     str(d.getMetadata().get("tagName")),

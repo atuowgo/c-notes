@@ -75,7 +75,7 @@ class ChatApiTest {
 
     @Test
     void chatPersistsSessionAndTwoMessagesWithReply() throws Exception {
-        when(knowledgeRetriever.retrieve(anyString(), anyInt()))
+        when(knowledgeRetriever.retrieve(anyString(), anyInt(), anyString()))
             .thenReturn(List.of(new KnowledgeRetriever.Hit("cook", "烹饪", "炖肉技巧综述", 0.9)));
         String articleId = seedArticle();
 
@@ -108,7 +108,7 @@ class ChatApiTest {
 
     @Test
     void reusesExistingSessionWhenSessionIdProvided() throws Exception {
-        when(knowledgeRetriever.retrieve(anyString(), anyInt())).thenReturn(List.of());
+        when(knowledgeRetriever.retrieve(anyString(), anyInt(), anyString())).thenReturn(List.of());
         String articleId = seedArticle();
 
         MvcResult first = mvc.perform(post("/api/articles/" + articleId + "/chat")

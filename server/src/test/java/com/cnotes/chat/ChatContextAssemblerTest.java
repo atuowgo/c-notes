@@ -48,6 +48,8 @@ class ChatContextAssemblerTest {
 
     private void seedNote(String articleId, String quote, String thought) {
         Note n = new Note();
+        // 无登录上下文归属系统用户;ChatContextAssembler 现按 owner 过滤「我的批注」。
+        n.setOwnerId(com.cnotes.auth.entity.User.SYSTEM_ID);
         n.setArticleId(articleId); n.setQuote(quote); n.setThought(thought);
         noteMapper.insert(n);
     }
@@ -57,7 +59,7 @@ class ChatContextAssemblerTest {
         Article a = seedArticle();
         seedNote(a.getId(), "小火慢炖", "关键在火候");
         seedNote(a.getId(), "焯水去腥", "去血水很重要");
-        when(knowledgeRetriever.retrieve(anyString(), anyInt()))
+        when(knowledgeRetriever.retrieve(anyString(), anyInt(), anyString()))
             .thenReturn(List.of(new KnowledgeRetriever.Hit("cook", "烹饪", "炖肉技巧综述", 0.9)));
 
         var ctx = assembler.assemble(a.getId(), "怎么做更入味");
@@ -75,7 +77,7 @@ class ChatContextAssemblerTest {
     void seedNoteAddsThoughtSourceForAsk() {
         Article a = seedArticle();
         seedNote(a.getId(), "小火慢炖", "关键在火候");
-        when(knowledgeRetriever.retrieve(anyString(), anyInt())).thenReturn(List.of());
+        when(knowledgeRetriever.retrieve(anyString(), anyInt(), anyString())).thenReturn(List.of());
         // 取回刚插入的想法 id
         Note seed = noteMapper.selectList(null).stream()
             .filter(n -> "关键在火候".equals(n.getThought())).findFirst().orElseThrow();
@@ -89,7 +91,7 @@ class ChatContextAssemblerTest {
 
     @Test
     void missingArticleAndNoKnowledgeYieldsNoSources() {
-        when(knowledgeRetriever.retrieve(anyString(), anyInt())).thenReturn(List.of());
+        when(knowledgeRetriever.retrieve(anyString(), anyInt(), anyString())).thenReturn(List.of());
 
         var ctx = assembler.assemble("0".repeat(32), "随便问问");
 
@@ -99,7 +101,7 @@ class ChatContextAssemblerTest {
     @Test
     void source1WithoutKnowledgeTagsOnlyArticle() {
         Article a = seedArticle();
-        when(knowledgeRetriever.retrieve(anyString(), anyInt())).thenReturn(List.of());
+        when(knowledgeRetriever.retrieve(anyString(), anyInt(), anyString())).thenReturn(List.of());
 
         var ctx = assembler.assemble(a.getId(), "问题");
 

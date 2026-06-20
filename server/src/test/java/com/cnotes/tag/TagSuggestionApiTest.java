@@ -27,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class TagSuggestionApiTest {
 
     @Autowired MockMvc mvc;
+    @Autowired TagSuggestionService tagSuggestionService;
     @Autowired TagSuggestionMapper suggestionMapper;
     @Autowired TagMapper tagMapper;
     @Autowired ArticleTagMapper articleTagMapper;
@@ -98,7 +99,10 @@ class TagSuggestionApiTest {
     @Test
     void acceptIsIdempotentWhenTagAlreadyExists() throws Exception {
         String articleId = seedArticle();
-        Tag existing = new Tag(); existing.setName("已有标签"); tagMapper.insert(existing);
+        // 无登录的 MockMvc 请求归属系统用户;同所有者下同名标签应被复用而非重建。
+        Tag existing = new Tag(); existing.setName("已有标签");
+        existing.setOwnerId(com.cnotes.auth.entity.User.SYSTEM_ID);
+        tagMapper.insert(existing);
         TagSuggestion s = seedSuggestion(articleId, "已有标签");
 
         mvc.perform(post("/api/tags/suggestions/" + s.getId() + "/accept"))
@@ -106,6 +110,24 @@ class TagSuggestionApiTest {
 
         // 标签仍只有一条(未重复创建)
         assertThat(tagMapper.selectList(Wrappers.<Tag>lambdaQuery().eq(Tag::getName, "已有标签"))).hasSize(1);
+    }
+
+    @Test
+    void acceptAssignsTagToCurrentUserAndIsolatesByOwner() {
+        // 私有标签池:两个用户接受同名建议 → 各得一条归属自己的标签,owner_id 正确写入。
+        // (同名建议须在不同文章上,uk_article_name 禁止同文章同名重复)
+        String alice = "a".repeat(32), bob = "b".repeat(32);
+        String sa = seedSuggestion(seedArticle(), "私有主题").getId();
+        String sb = seedSuggestion(seedArticle(), "私有主题").getId();
+
+        try { com.cnotes.auth.UserContext.set(alice); tagSuggestionService.accept(sa); }
+        finally { com.cnotes.auth.UserContext.clear(); }
+        try { com.cnotes.auth.UserContext.set(bob); tagSuggestionService.accept(sb); }
+        finally { com.cnotes.auth.UserContext.clear(); }
+
+        var tags = tagMapper.selectList(Wrappers.<Tag>lambdaQuery().eq(Tag::getName, "私有主题"));
+        assertThat(tags).hasSize(2);
+        assertThat(tags).extracting(Tag::getOwnerId).containsExactlyInAnyOrder(alice, bob);
     }
 
     @Test
