@@ -205,8 +205,53 @@ export interface PublicArticle {
   /** 当前查看者(若已登录)对本文的互动态 */
   bookmarked: boolean;
   collected: boolean;
+  liked: boolean;
   /** 是否本人文章 */
   mine: boolean;
+  /** 社交计数(阶段 4) */
+  likeCount: number;
+  commentCount: number;
+}
+
+/** 评论(阶段 4;parentId 为空即顶层,楼中楼一层) */
+export interface Comment {
+  id: string;
+  articleId: string;
+  parentId?: string | null;
+  body: string;
+  authorId: string;
+  authorNickname?: string | null;
+  authorAvatarUrl?: string | null;
+  byArticleAuthor: boolean;
+  mine: boolean;
+  createTime: string;
+}
+
+/** 公开批注(阶段 4;他人文章上、所有人可见) */
+export interface PublicAnnotation {
+  id: string;
+  quote: string;
+  thought?: string | null;
+  anchor?: NoteAnchor;
+  authorId: string;
+  authorNickname?: string | null;
+  mine: boolean;
+  createTime: string;
+}
+
+/** 通知(阶段 4) */
+export type NotificationType = 'LIKE' | 'COMMENT' | 'REPLY' | 'FOLLOW' | 'ANNOTATION';
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  actorId: string;
+  actorNickname?: string | null;
+  actorAvatarUrl?: string | null;
+  articleId?: string | null;
+  articleTitle?: string | null;
+  commentId?: string | null;
+  read: boolean;
+  createTime: string;
 }
 
 /** 广场卡片(多用户阶段 3):公开文章 + 作者 + 行为计数 + 质量分 */
@@ -240,6 +285,8 @@ export interface PublicProfile {
   bookmarkedTotal: number;
   following: number;
   followers: number;
+  /** 当前登录者是否已关注此人(阶段 4) */
+  followedByMe: boolean;
 }
 
 /** 收录卡片(渲染进收件箱,带「收录自 X」角标;多用户阶段 2) */

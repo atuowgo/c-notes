@@ -31,6 +31,11 @@ public class PublicArticleDto {
     /** 当前查看者(若已登录)对本文的互动态。 */
     private boolean bookmarked;
     private boolean collected;
+    private boolean liked;
     /** 是否本人文章(本人无需对自己收藏/收录)。 */
     private boolean mine;
+
+    /** 社交计数(阶段 4)。 */
+    private long likeCount;
+    private long commentCount;
 }

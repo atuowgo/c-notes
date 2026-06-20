@@ -1,4 +1,4 @@
-# 多用户(阶段 1–3)端到端验证截图
+# 多用户(阶段 1–4)端到端验证截图
 
 > 日期:2026-06-20 · 分支 `claude/vibrant-dijkstra-5wxegb`
 > 真实链路取证:Spring Boot(H2)后端 + Vite 前端 + Playwright(Chromium)驱动真实浏览器截图。
@@ -16,11 +16,15 @@
 | `06-public-profile.png` | 3 | 用户公开主页:阿陈 统计(3 公开 · 1 被收录 · 2 被收藏 · 0 粉丝)+ 已分享文章列表 |
 | `07-inbox-collected.png` | 2 | 小李收件箱:收录卡片「📥 收录自 阿陈」+ 个人笔记,与本人原创卡片(处理中)区分 |
 | `08-public-article-actions.png` | 2 | 公开文章只读视图:「来自 阿陈」+ 自动沉淀(摘要 + 要点)+ 按生效级别渐进显示的 🔖已收藏 / 📥已收录 操作条 |
+| `09-public-article-social.png` | 4 | 公开文章社交全貌:👍已赞(1)/🔖/📥 操作条 + 公开批注(正文绿色高亮 + 批注列表)+ 评论区(小李评论 → 阿陈「作者」回复,楼中楼)+ 顶栏通知红点 |
+| `10-profile-follow.png` | 4 | 用户公开主页:「✓ 已关注」状态 + 粉丝 1;卡片质量分 ⭐7(已纳入点赞/评论信号)+ 👍1 💬2 计数 |
+| `11-notifications.png` | 4 | 通知中心:阿陈收到小李的 赞 / 评论 / 公开批注 / 关注 四条(带文章标题,未读高亮) |
 
 ## 配套自动化验证(非截图)
 
-- 后端单元 / HTTP 端到端:`./gradlew test` → **142 tests / 0 失败 / 8 skipped**
-  (含 `AuthIsolationApiTest` 跨用户隔离、`SharingApiTest` 分享/收藏/收录门槛、`PlazaApiTest` 质量分排序与公开主页)。
+- 后端单元 / HTTP 端到端:`./gradlew test` → **146 tests / 0 失败 / 8 skipped**
+  (含 `AuthIsolationApiTest` 跨用户隔离、`SharingApiTest` 分享/收藏/收录门槛、`PlazaApiTest` 质量分排序与公开主页、
+  `SocialApiTest` 点赞/评论/批注门槛 + 关注 + 通知触达)。
 - 真实 H2 服务 + curl 链路 + Vite `/api` 代理(浏览器路径)复验:见各阶段提交说明。
 
 ## 复现方式

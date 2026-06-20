@@ -2,10 +2,12 @@
 import { ref, watch } from 'vue';
 import type { PublicProfile, PlazaCard as PlazaCardModel } from '@cnotes/types';
 import { api } from '../api';
+import { toast } from '../toast';
 import PlazaCard from '../components/PlazaCard.vue';
 
-const props = defineProps<{ userId: string }>();
-const emit = defineEmits<{ back: []; open: [id: string]; openProfile: [userId: string] }>();
+const props = defineProps<{ userId: string; loggedIn: boolean }>();
+const emit = defineEmits<{ back: []; open: [id: string]; openProfile: [userId: string]; login: [] }>();
+const busy = ref(false);
 
 const profile = ref<PublicProfile | null>(null);
 const articles = ref<PlazaCardModel[]>([]);
@@ -36,6 +38,18 @@ async function load(userId: string) {
   }
 }
 watch(() => props.userId, load, { immediate: true });
+
+async function toggleFollow() {
+  if (!profile.value || busy.value) return;
+  if (!props.loggedIn) { emit('login'); return; }
+  const p = profile.value;
+  busy.value = true;
+  try {
+    if (p.followedByMe) { await api.unfollow(p.userId); p.followedByMe = false; p.followers--; }
+    else { await api.follow(p.userId); p.followedByMe = true; p.followers++; toast('已关注'); }
+  } catch (e) { toast(`操作失败:${(e as Error).message}`); }
+  finally { busy.value = false; }
+}
 </script>
 
 <template>
@@ -52,12 +66,17 @@ watch(() => props.userId, load, { immediate: true });
         <img v-if="profile.avatarUrl" :src="profile.avatarUrl" class="profile-avatar" alt="头像" />
         <span v-else class="profile-avatar initials">{{ initials(profile) }}</span>
         <div class="profile-meta">
-          <div class="profile-name">{{ profile.nickname || '匿名' }}</div>
+          <div class="profile-name-row">
+            <div class="profile-name">{{ profile.nickname || '匿名' }}</div>
+            <button class="follow-btn" :class="{ on: profile.followedByMe }" :disabled="busy" @click="toggleFollow">
+              {{ profile.followedByMe ? '✓ 已关注' : '＋ 关注' }}
+            </button>
+          </div>
           <div class="profile-stats">
             <span><b>{{ profile.publicCount }}</b> 公开</span>
             <span><b>{{ profile.collectedTotal }}</b> 被收录</span>
-            <span><b>{{ profile.bookmarkedTotal }}</b> 被收藏</span>
             <span><b>{{ profile.followers }}</b> 粉丝</span>
+            <span><b>{{ profile.following }}</b> 关注</span>
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import type { PlazaCard as PlazaCardModel } from '@cnotes/types';
 import { api } from '../api';
 import PlazaCard from '../components/PlazaCard.vue';
 
+defineProps<{ loggedIn: boolean }>();
 const emit = defineEmits<{ open: [id: string]; openProfile: [userId: string] }>();
 
 type Flow = 'discover' | 'following' | 'topics';
@@ -18,7 +19,7 @@ const size = 20;
 const loading = ref(false);
 const error = ref('');
 
-async function loadDiscover(reset = true) {
+async function loadFlow(reset = true) {
   if (reset) {
     page.value = 1;
     items.value = [];
@@ -26,7 +27,9 @@ async function loadDiscover(reset = true) {
   loading.value = true;
   error.value = '';
   try {
-    const r = await api.plazaDiscover({ sort: sort.value, page: page.value, size });
+    const r = flow.value === 'following'
+      ? await api.plazaFollowing({ page: page.value, size })
+      : await api.plazaDiscover({ sort: sort.value, page: page.value, size });
     items.value = reset ? r.items : [...items.value, ...r.items];
     total.value = r.total;
   } catch (e) {
@@ -36,33 +39,39 @@ async function loadDiscover(reset = true) {
   }
 }
 
+function setFlow(f: Flow) {
+  if (flow.value === f) return;
+  flow.value = f;
+  if (f === 'discover' || f === 'following') loadFlow();
+}
+
 function setSort(s: Sort) {
   if (sort.value === s) return;
   sort.value = s;
-  loadDiscover();
+  loadFlow();
 }
 
 function loadMore() {
   page.value += 1;
-  loadDiscover(false);
+  loadFlow(false);
 }
 
-onMounted(() => loadDiscover());
+onMounted(() => loadFlow());
 </script>
 
 <template>
   <div class="plaza">
     <div class="plaza-tabs">
-      <button class="sub-tab" :class="{ on: flow === 'discover' }" @click="flow = 'discover'">发现</button>
-      <button class="sub-tab" :class="{ on: flow === 'following' }" @click="flow = 'following'">关注</button>
-      <button class="sub-tab" :class="{ on: flow === 'topics' }" @click="flow = 'topics'">话题</button>
+      <button class="sub-tab" :class="{ on: flow === 'discover' }" @click="setFlow('discover')">发现</button>
+      <button class="sub-tab" :class="{ on: flow === 'following' }" @click="setFlow('following')">关注</button>
+      <button class="sub-tab" :class="{ on: flow === 'topics' }" @click="setFlow('topics')">话题</button>
     </div>
 
-    <!-- 发现流 -->
-    <template v-if="flow === 'discover'">
+    <!-- 发现 / 关注流 -->
+    <template v-if="flow === 'discover' || flow === 'following'">
       <div class="plaza-bar">
-        <div class="plaza-bar-title">🔥 精品发现</div>
-        <div class="sort-toggle">
+        <div class="plaza-bar-title">{{ flow === 'discover' ? '🔥 精品发现' : '👥 关注动态' }}</div>
+        <div v-if="flow === 'discover'" class="sort-toggle">
           <button :class="{ on: sort === 'score' }" @click="setSort('score')">质量分</button>
           <button :class="{ on: sort === 'recent' }" @click="setSort('recent')">最新</button>
         </div>
@@ -70,6 +79,10 @@ onMounted(() => loadDiscover());
 
       <div v-if="loading && !items.length" class="empty">加载中…</div>
       <div v-else-if="error" class="empty">加载失败:{{ error }}<br />请确认后端已启动。</div>
+      <div v-else-if="!items.length && flow === 'following'" class="empty">
+        <template v-if="!loggedIn">登录后关注作者,这里汇总他们的最新公开内容。</template>
+        <template v-else>还没有关注任何人。<br />去「发现」逛逛,点作者头像进主页关注。</template>
+      </div>
       <div v-else-if="!items.length" class="empty">
         广场还没有公开内容。<br />把你的文章设为「只读 / 可收藏 / 可收录」即可出现在这里。
       </div>
@@ -89,12 +102,6 @@ onMounted(() => loadDiscover());
         </div>
       </template>
     </template>
-
-    <!-- 关注流(阶段 4) -->
-    <div v-else-if="flow === 'following'" class="empty">
-      关注功能即将上线(阶段 4 社交互动)。<br />
-      先到「发现」逛逛,遇到喜欢的作者点头像进主页。
-    </div>
 
     <!-- 话题流(待跨用户聚类) -->
     <div v-else class="empty">

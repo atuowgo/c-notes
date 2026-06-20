@@ -42,6 +42,7 @@ public class InteractionService {
     private final UserMapper userMapper;
     private final ShareService shareService;
     private final ArticleQueryService articleQueryService;
+    private final com.cnotes.social.SocialService socialService;
     private final ObjectMapper om;
 
     /* ---------- 逐篇分享级别覆盖(仅本人) ---------- */
@@ -86,7 +87,10 @@ public class InteractionService {
         if (me != null && !d.isMine()) {
             d.setBookmarked(hasBookmark(me, id));
             d.setCollected(hasCollection(me, id));
+            d.setLiked(socialService.isLiked(me, id));
         }
+        d.setLikeCount(socialService.likeCount(id));
+        d.setCommentCount(socialService.commentCount(id));
         return d;
     }
 

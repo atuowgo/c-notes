@@ -15,6 +15,7 @@ import ComposeModal from './components/ComposeModal.vue';
 import Toast from './components/Toast.vue';
 import LoginModal from './components/LoginModal.vue';
 import UserMenu from './components/UserMenu.vue';
+import NotificationBell from './components/NotificationBell.vue';
 import ShareSettingsModal from './components/ShareSettingsModal.vue';
 import { loadNotes } from './notes';
 import { api } from './api';
@@ -35,6 +36,7 @@ const inbox = useTemplateRef<InstanceType<typeof InboxView>>('inbox');
 const user = ref<CurrentUser | null>(null);
 const loginOpen = ref(false);
 const shareSettingsOpen = ref(false);
+const bell = useTemplateRef<{ refreshCount: () => void }>('bell');
 
 function openCompose(noteId: string) {
   composeNoteIds.value = [noteId];
@@ -107,6 +109,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKey));
       <div class="spacer"></div>
       <button class="add-btn" @click="collectOpen = true">＋ 收藏链接</button>
       <button class="icon-btn" title="全部想法" @click="drawer = { scope: 'all' }">💡</button>
+      <NotificationBell v-if="user" ref="bell" @open="openPublic" />
       <UserMenu
         v-if="user"
         :user="user"
@@ -129,9 +132,11 @@ onUnmounted(() => document.removeEventListener('keydown', onKey));
   <ProfileView
     v-else-if="openProfileId"
     :user-id="openProfileId"
+    :logged-in="!!user"
     @back="closeProfile"
     @open="openPublic"
     @open-profile="openProfile"
+    @login="loginOpen = true"
   />
   <!-- 阅读器叠加层 -->
   <ReaderView
@@ -154,7 +159,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKey));
   <template v-else>
     <InboxView v-if="tab === 'inbox'" ref="inbox" @open="openReader" @open-public="openPublic" />
     <ClustersView v-if="tab === 'clusters'" @open="openClusterId = $event" />
-    <PlazaView v-if="tab === 'plaza'" @open="openPublic" @open-profile="openProfile" />
+    <PlazaView v-if="tab === 'plaza'" :logged-in="!!user" @open="openPublic" @open-profile="openProfile" />
   </template>
 
   <CollectModal :open="collectOpen" @close="collectOpen = false" @collected="inbox?.load()" />

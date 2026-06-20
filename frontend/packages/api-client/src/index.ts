@@ -13,8 +13,11 @@ import type {
   CollectResponse,
   ComposeReply,
   CreateNoteRequest,
+  AppNotification,
+  Comment,
   Note,
   PlazaCard,
+  PublicAnnotation,
   PublicArticle,
   PublicProfile,
   RelatedArticle,
@@ -106,6 +109,25 @@ export interface CnotesClient {
   plazaProfile(userId: string): Promise<PublicProfile>;
   /** 多用户阶段 3:某用户的公开文章(主页「已分享文章」),分页 */
   plazaUserArticles(userId: string, params?: { page?: number; size?: number }): Promise<Paged<PlazaCard>>;
+  /** 多用户阶段 3/4:关注流——我关注用户的最新公开内容,分页 */
+  plazaFollowing(params?: { page?: number; size?: number }): Promise<Paged<PlazaCard>>;
+  /** 多用户阶段 4:点赞 / 取消点赞 */
+  like(id: string): Promise<void>;
+  unlike(id: string): Promise<void>;
+  /** 多用户阶段 4:评论(列表 / 发表 / 删除) */
+  listComments(articleId: string): Promise<Comment[]>;
+  addComment(articleId: string, body: string, parentId?: string): Promise<Comment>;
+  deleteComment(id: string): Promise<void>;
+  /** 多用户阶段 4:公开批注(列表 / 发表) */
+  listAnnotations(articleId: string): Promise<PublicAnnotation[]>;
+  addAnnotation(articleId: string, req: { quote: string; thought?: string; anchor?: { start: number; end: number } }): Promise<PublicAnnotation>;
+  /** 多用户阶段 4:关注 / 取消关注 */
+  follow(userId: string): Promise<void>;
+  unfollow(userId: string): Promise<void>;
+  /** 多用户阶段 4:通知(列表 / 未读数 / 全标已读) */
+  listNotifications(): Promise<AppNotification[]>;
+  unreadCount(): Promise<number>;
+  markNotificationsRead(): Promise<void>;
 }
 
 /**
@@ -276,5 +298,29 @@ export function createClient(baseUrl = ''): CnotesClient {
       requestPaged<PlazaCard>(
         `/api/plaza/users/${encodeURIComponent(userId)}/articles${qs({ page: params?.page, size: params?.size })}`,
       ),
+
+    plazaFollowing: (params) =>
+      requestPaged<PlazaCard>(`/api/plaza/following${qs({ page: params?.page, size: params?.size })}`),
+
+    like: (id) => request<void>(`/api/articles/${encodeURIComponent(id)}/like`, { method: 'POST' }),
+    unlike: (id) => request<void>(`/api/articles/${encodeURIComponent(id)}/like`, { method: 'DELETE' }),
+
+    listComments: (articleId) => request<Comment[]>(`/api/articles/${encodeURIComponent(articleId)}/comments`),
+    addComment: (articleId, body, parentId) =>
+      request<Comment>(`/api/articles/${encodeURIComponent(articleId)}/comments`, jsonBody('POST', { body, parentId })),
+    deleteComment: (id) => request<void>(`/api/comments/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+    listAnnotations: (articleId) =>
+      request<PublicAnnotation[]>(`/api/articles/${encodeURIComponent(articleId)}/annotations`),
+    addAnnotation: (articleId, req) =>
+      request<PublicAnnotation>(`/api/articles/${encodeURIComponent(articleId)}/annotations`, jsonBody('POST', req)),
+
+    follow: (userId) => request<void>(`/api/users/${encodeURIComponent(userId)}/follow`, { method: 'POST' }),
+    unfollow: (userId) => request<void>(`/api/users/${encodeURIComponent(userId)}/follow`, { method: 'DELETE' }),
+
+    listNotifications: () => request<AppNotification[]>('/api/notifications'),
+    unreadCount: () =>
+      request<{ count: number }>('/api/notifications/unread-count').then((r) => r.count),
+    markNotificationsRead: () => request<void>('/api/notifications/read', { method: 'POST' }),
   };
 }

@@ -3,6 +3,7 @@ package com.cnotes.plaza;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.cnotes.article.ArticleQueryService;
 import com.cnotes.article.entity.Article;
+import com.cnotes.auth.UserContext;
 import com.cnotes.auth.entity.User;
 import com.cnotes.auth.mapper.UserMapper;
 import com.cnotes.plaza.dto.PlazaCardDto;
@@ -16,6 +17,11 @@ import com.cnotes.share.entity.Bookmark;
 import com.cnotes.share.entity.Collection;
 import com.cnotes.share.mapper.BookmarkMapper;
 import com.cnotes.share.mapper.CollectionMapper;
+import com.cnotes.social.SocialService;
+import com.cnotes.social.entity.ArticleLike;
+import com.cnotes.social.entity.Comment;
+import com.cnotes.social.mapper.ArticleLikeMapper;
+import com.cnotes.social.mapper.CommentMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -40,9 +46,12 @@ public class PlazaService {
     private final UserMapper userMapper;
     private final BookmarkMapper bookmarkMapper;
     private final CollectionMapper collectionMapper;
+    private final ArticleLikeMapper likeMapper;
+    private final CommentMapper commentMapper;
     private final ArticleRelationMapper relationMapper;
     private final ArticleQueryService articleQueryService;
     private final ShareService shareService;
+    private final SocialService socialService;
     private final PlazaScoreProperties weights;
 
     /** 发现流:全平台公开文章。sort="recent" 按最新,否则按 [质量分 × 新鲜度]。 */
@@ -54,6 +63,16 @@ public class PlazaService {
     /** 某用户的公开文章(主页「已分享文章」),按最新。 */
     public PlazaPage userArticles(String userId, int page, int size) {
         List<Article> list = plazaMapper.findPublicByOwner(userId, weights.getCandidateCap());
+        return paginateScored(list, "recent", page, size);
+    }
+
+    /** 关注流:我关注用户的最新公开内容。 */
+    public PlazaPage following(int page, int size) {
+        List<String> followees = socialService.followeeIds(UserContext.currentRaw());
+        if (followees.isEmpty()) return new PlazaPage(List.of(), 0);
+        Set<String> set = Set.copyOf(followees);
+        List<Article> list = plazaMapper.findPublicCandidates(weights.getCandidateCap()).stream()
+            .filter(a -> set.contains(a.getOwnerId())).toList();
         return paginateScored(list, "recent", page, size);
     }
 
@@ -70,8 +89,9 @@ public class PlazaService {
         d.setPublicCount(publics.size());
         d.setCollectedTotal(countCollections(ids).values().stream().mapToLong(Long::longValue).sum());
         d.setBookmarkedTotal(countBookmarks(ids).values().stream().mapToLong(Long::longValue).sum());
-        d.setFollowing(0);
-        d.setFollowers(0);
+        d.setFollowing(socialService.followingCount(userId));
+        d.setFollowers(socialService.followerCount(userId));
+        d.setFollowedByMe(socialService.isFollowing(UserContext.currentRaw(), userId));
         return d;
     }
 
@@ -85,6 +105,8 @@ public class PlazaService {
         List<String> ids = candidates.stream().map(Article::getId).toList();
         Map<String, Long> bookmarks = countBookmarks(ids);
         Map<String, Long> collects = countCollections(ids);
+        Map<String, Long> likes = countLikes(ids);
+        Map<String, Long> comments = countComments(ids);
         Map<String, Long> degrees = countDegrees(ids);
         Map<String, List<String>> tags = articleQueryService.tagsByArticle(ids);
         Set<String> ownerIds = candidates.stream().map(Article::getOwnerId).collect(Collectors.toSet());
@@ -96,8 +118,11 @@ public class PlazaService {
         List<Scored> scored = candidates.stream().map(a -> {
             long bm = bookmarks.getOrDefault(a.getId(), 0L);
             long col = collects.getOrDefault(a.getId(), 0L);
+            long lk = likes.getOrDefault(a.getId(), 0L);
+            long cm = comments.getOrDefault(a.getId(), 0L);
             long deg = degrees.getOrDefault(a.getId(), 0L);
-            double behavior = col * weights.getCollect() + bm * weights.getBookmark();
+            double behavior = col * weights.getCollect() + bm * weights.getBookmark()
+                + lk * weights.getLike() + cm * weights.getComment();
             double aiDepth = summaryRichness(a.getSummary()) + deg * weights.getDegree();
             double quality = behavior + weights.getAiWeight() * aiDepth;
             double ranking = byRecent ? 0 : quality * freshness(a.getCreateTime());
@@ -112,6 +137,8 @@ public class PlazaService {
             c.setTags(tags.getOrDefault(a.getId(), List.of()));
             c.setBookmarkCount(bm);
             c.setCollectCount(col);
+            c.setLikeCount(lk);
+            c.setCommentCount(cm);
             c.setQualityScore((int) Math.round(quality));
             c.setEffectiveShareLevel(shareService.effectiveLevel(a).name());
             User o = owners.get(a.getOwnerId());
@@ -141,6 +168,18 @@ public class PlazaService {
         if (articleIds.isEmpty()) return Map.of();
         return collectionMapper.selectList(Wrappers.<Collection>lambdaQuery().in(Collection::getSourceArticleId, articleIds))
             .stream().collect(Collectors.groupingBy(Collection::getSourceArticleId, Collectors.counting()));
+    }
+
+    private Map<String, Long> countLikes(List<String> articleIds) {
+        if (articleIds.isEmpty()) return Map.of();
+        return likeMapper.selectList(Wrappers.<ArticleLike>lambdaQuery().in(ArticleLike::getArticleId, articleIds))
+            .stream().collect(Collectors.groupingBy(ArticleLike::getArticleId, Collectors.counting()));
+    }
+
+    private Map<String, Long> countComments(List<String> articleIds) {
+        if (articleIds.isEmpty()) return Map.of();
+        return commentMapper.selectList(Wrappers.<Comment>lambdaQuery().in(Comment::getArticleId, articleIds))
+            .stream().collect(Collectors.groupingBy(Comment::getArticleId, Collectors.counting()));
     }
 
     /** 连通度:article_relation 中以该文为任一端点的边数(无向度数)。 */

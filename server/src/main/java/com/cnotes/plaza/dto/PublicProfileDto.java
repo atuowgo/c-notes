@@ -21,4 +21,6 @@ public class PublicProfileDto {
     private long following;
     /** 粉丝数(阶段 4)。 */
     private long followers;
+    /** 当前登录者是否已关注此人。 */
+    private boolean followedByMe;
 }

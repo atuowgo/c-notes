@@ -30,6 +30,14 @@ public class PlazaController {
         return ResponseEntity.ok().header("X-Total-Count", String.valueOf(r.total())).body(r.items());
     }
 
+    @GetMapping("/following")
+    public ResponseEntity<List<PlazaCardDto>> following(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PlazaPage r = plazaService.following(page, size);
+        return ResponseEntity.ok().header("X-Total-Count", String.valueOf(r.total())).body(r.items());
+    }
+
     @GetMapping("/users/{id}")
     public ResponseEntity<PublicProfileDto> profile(@PathVariable String id) {
         PublicProfileDto d = plazaService.profile(id);

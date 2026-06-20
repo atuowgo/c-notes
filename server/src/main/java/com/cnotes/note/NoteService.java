@@ -61,6 +61,7 @@ public class NoteService {
         n.setQuote(req.getQuote());
         n.setThought(req.getThought());
         n.setAnchor(writeAnchor(req.getAnchor()));
+        n.setVisibility("PRIVATE");   // 端内划线想法默认私有;公开批注走 SocialService
         noteMapper.insert(n);
         return toDto(n, titlesFor(List.of(n.getArticleId())));
     }

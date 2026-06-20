@@ -14,6 +14,7 @@ public class Note {
     private String quote;
     private String thought;
     private String anchor;        // JSON 文本 {start,end},Service 层(反)序列化
+    private String visibility;    // PRIVATE 仅自己 / PUBLIC 公开批注(阶段 4)
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
