@@ -1,7 +1,29 @@
 # 移动端 — Capacitor 包壳(V3 的另一半)
 
-> 状态:**已搭好包壳**。移动端复用 `@cnotes/web` 的同一份构建产物(`apps/web/dist`),
-> 由 Capacitor 装进原生 WebView。真机/模拟器构建需 Android SDK(环境前置,见下)。
+> 状态:**已搭好包壳并完成 Android APK 构建验证**(2026-06-20)。移动端复用 `@cnotes/web` 的
+> 同一份构建产物(`apps/web/dist`),由 Capacitor 装进原生 WebView。
+
+## ✅ Android APK 构建已验证(2026-06-20)
+
+装好 Android SDK 后,`./gradlew :app:assembleDebug` **BUILD SUCCESSFUL**,产出可安装的调试包:
+
+- 产物:`apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk`(约 3.8 MB)。
+- 包信息:`package=com.cnotes.app`,label「知识炼金炉」,minSdk 22 / targetSdk 34 / compileSdk 34。
+- APK 内 `assets/public/` 即 `@cnotes/web` 的最新 dist(index.html + 同名 hash 的 js/css),
+  确认「一处 web 多端复用」在原生壳内成立。
+
+构建步骤(本沙箱现装现验):
+```bash
+export ANDROID_HOME=/opt/android-sdk
+yes | sdkmanager --licenses
+sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+cd frontend && pnpm --filter @cnotes/mobile sync          # 产 web dist 并 cap sync 进原生工程
+cd apps/mobile/android && echo "sdk.dir=$ANDROID_HOME" > local.properties
+ANDROID_HOME=$ANDROID_HOME ./gradlew :app:assembleDebug    # 产 app-debug.apk
+```
+
+> 仍需真机/模拟器才能"运行/截屏"(`adb install` 后启动);本环境无设备,但 APK 产物本身
+> 已是构建链路打通的证据。发布包(AAB/release)走 `assembleRelease` + 签名密钥。
 
 ## 形态
 
