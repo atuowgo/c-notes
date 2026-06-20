@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, useTemplateRef, onMounted, onUnmounted } from 'vue';
-import type { ArticleDetail } from '@cnotes/types';
+import type { ArticleDetail, CurrentUser } from '@cnotes/types';
 import InboxView from './views/InboxView.vue';
 import ReaderView from './views/ReaderView.vue';
 import ClustersView from './views/ClustersView.vue';
@@ -10,7 +10,10 @@ import ChatPanel from './components/ChatPanel.vue';
 import IdeasDrawer from './components/IdeasDrawer.vue';
 import ComposeModal from './components/ComposeModal.vue';
 import Toast from './components/Toast.vue';
+import LoginModal from './components/LoginModal.vue';
+import UserMenu from './components/UserMenu.vue';
 import { loadNotes } from './notes';
+import { api } from './api';
 
 type Tab = 'inbox' | 'clusters';
 
@@ -22,6 +25,9 @@ const collectOpen = ref(false);
 const drawer = ref<{ scope: 'article' | 'all' } | null>(null);
 const composeNoteIds = ref<string[] | null>(null);
 const inbox = useTemplateRef<InstanceType<typeof InboxView>>('inbox');
+
+const user = ref<CurrentUser | null>(null);
+const loginOpen = ref(false);
 
 function openCompose(noteId: string) {
   composeNoteIds.value = [noteId];
@@ -44,15 +50,17 @@ function go(t: Tab) {
 
 function onKey(e: KeyboardEvent) {
   if (e.key !== 'Escape') return;
-  if (composeNoteIds.value) composeNoteIds.value = null;
+  if (loginOpen.value) loginOpen.value = false;
+  else if (composeNoteIds.value) composeNoteIds.value = null;
   else if (drawer.value) drawer.value = null;
   else if (collectOpen.value) collectOpen.value = false;
   else if (openId.value) closeReader();
   else if (openClusterId.value) openClusterId.value = null;
 }
-onMounted(() => {
+onMounted(async () => {
   document.addEventListener('keydown', onKey);
   loadNotes();
+  user.value = await api.me();
 });
 onUnmounted(() => document.removeEventListener('keydown', onKey));
 </script>
@@ -68,6 +76,8 @@ onUnmounted(() => document.removeEventListener('keydown', onKey));
       <div class="spacer"></div>
       <button class="add-btn" @click="collectOpen = true">＋ 收藏链接</button>
       <button class="icon-btn" title="全部想法" @click="drawer = { scope: 'all' }">💡</button>
+      <UserMenu v-if="user" :user="user" @logout="user = null" />
+      <button v-else class="login-entry-btn" @click="loginOpen = true">登录</button>
     </div>
   </div>
 
@@ -111,4 +121,5 @@ onUnmounted(() => document.removeEventListener('keydown', onKey));
     @close="composeNoteIds = null"
   />
   <Toast />
+  <LoginModal :open="loginOpen" @close="loginOpen = false" />
 </template>
