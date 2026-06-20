@@ -141,4 +141,25 @@ describe('CnotesClient V3/V4 endpoints', () => {
     const [, init] = lastCall();
     expect(JSON.parse(init.body)).toEqual({ message: '基于这条想法', noteId: 'note1' });
   });
+
+  it('listTagSuggestions GETs /api/articles/{id}/tag-suggestions', async () => {
+    await createClient('').listTagSuggestions('art1');
+    expect(lastCall()[0]).toBe('/api/articles/art1/tag-suggestions');
+  });
+
+  it('acceptTagSuggestion POSTs to /api/tags/suggestions/{id}/accept', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ id: 's1', status: 'accepted' }) } as Response);
+    await createClient('').acceptTagSuggestion('s1');
+    const [url, init] = lastCall();
+    expect(url).toBe('/api/tags/suggestions/s1/accept');
+    expect(init.method).toBe('POST');
+  });
+
+  it('rejectTagSuggestion POSTs to /api/tags/suggestions/{id}/reject', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ id: 's2', status: 'rejected' }) } as Response);
+    await createClient('').rejectTagSuggestion('s2');
+    const [url, init] = lastCall();
+    expect(url).toBe('/api/tags/suggestions/s2/reject');
+    expect(init.method).toBe('POST');
+  });
 });

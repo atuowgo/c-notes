@@ -169,6 +169,26 @@ button { font-family: inherit; cursor: pointer; }
 }
 .r-tags { margin: 18px 0 0; display: flex; gap: 7px; flex-wrap: wrap; }
 
+/* 待确认标签建议 */
+.r-tag-suggestions {
+  margin: 12px 0 0; padding: 10px 14px; border-radius: 10px;
+  background: #fffbf0; border: 1px solid #f0e4c0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+.tgs-label { font-size: 12px; font-weight: 600; color: var(--ink-soft); margin-right: 4px; white-space: nowrap; }
+.tgs-item { display: flex; align-items: center; gap: 5px; }
+.tgs-name { font-size: 13px; font-weight: 500; color: var(--ink); }
+.tgs-accept {
+  border: 1px solid #c9a84c; background: #fef3d0; color: #7a5c00;
+  border-radius: 6px; padding: 2px 9px; font-size: 12px; font-weight: 600;
+}
+.tgs-accept:hover:not(:disabled) { background: #f0e4c0; }
+.tgs-reject {
+  border: 1px solid var(--line); background: none; color: var(--ink-faint);
+  border-radius: 6px; padding: 2px 8px; font-size: 12px;
+}
+.tgs-reject:hover:not(:disabled) { border-color: #c0392b; color: #c0392b; }
+.tgs-accept:disabled, .tgs-reject:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* 正文页顶部:返回 + 本文想法入口 */
 .r-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; }
 .r-top .back { margin: 0; }

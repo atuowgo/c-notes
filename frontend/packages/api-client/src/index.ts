@@ -13,6 +13,7 @@ import type {
   Note,
   RelatedArticle,
   RelatedNote,
+  TagSuggestion,
   UpdateNoteRequest,
 } from '@cnotes/types';
 
@@ -54,6 +55,12 @@ export interface CnotesClient {
   compose(noteIds: string[], topic?: string): Promise<ComposeReply>;
   /** 深聊:围绕锚定文章发起/续接一轮对话;sessionId 为空则后端新建会话;noteId 由「提问」带入 */
   chat(articleId: string, req: ChatRequest): Promise<ChatReply>;
+  /** 标签建议:列出某文章 pending 的 LLM 标签建议(阅读页「待确认标签」) */
+  listTagSuggestions(articleId: string): Promise<TagSuggestion[]>;
+  /** 接受标签建议:新建受控标签 + 链接文章 */
+  acceptTagSuggestion(id: string): Promise<TagSuggestion>;
+  /** 拒绝标签建议 */
+  rejectTagSuggestion(id: string): Promise<TagSuggestion>;
 }
 
 /**
@@ -140,5 +147,14 @@ export function createClient(baseUrl = ''): CnotesClient {
 
     chat: (id, req) =>
       request<ChatReply>(`/api/articles/${encodeURIComponent(id)}/chat`, jsonBody('POST', req)),
+
+    listTagSuggestions: (articleId) =>
+      request<TagSuggestion[]>(`/api/articles/${encodeURIComponent(articleId)}/tag-suggestions`),
+
+    acceptTagSuggestion: (id) =>
+      request<TagSuggestion>(`/api/tags/suggestions/${encodeURIComponent(id)}/accept`, { method: 'POST' }),
+
+    rejectTagSuggestion: (id) =>
+      request<TagSuggestion>(`/api/tags/suggestions/${encodeURIComponent(id)}/reject`, { method: 'POST' }),
   };
 }

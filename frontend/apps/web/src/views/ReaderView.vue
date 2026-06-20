@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
-import type { ArticleDetail } from '@cnotes/types';
+import type { ArticleDetail, TagSuggestion } from '@cnotes/types';
 import { api } from '../api';
 import { srcLabel } from '../format';
 import { toast } from '../toast';
@@ -18,6 +18,48 @@ const emit = defineEmits<{
 
 const article = ref<ArticleDetail | null>(null);
 const bodyEl = ref<HTMLElement>();
+
+/* ---------- 待确认标签建议 ---------- */
+const tagSuggestions = ref<TagSuggestion[]>([]);
+const actingOnSuggestion = ref('');
+
+async function loadTagSuggestions(id: string) {
+  try {
+    tagSuggestions.value = await api.listTagSuggestions(id);
+  } catch {
+    // 建议加载失败不阻塞主流程
+  }
+}
+
+async function acceptSuggestion(s: TagSuggestion) {
+  if (actingOnSuggestion.value) return;
+  actingOnSuggestion.value = s.id;
+  try {
+    await api.acceptTagSuggestion(s.id);
+    tagSuggestions.value = tagSuggestions.value.filter((x) => x.id !== s.id);
+    if (article.value) {
+      article.value = { ...article.value, tags: [...(article.value.tags ?? []), s.name] };
+    }
+    toast(`已加入「${s.name}」标签`);
+  } catch (e) {
+    toast(`操作失败:${(e as Error).message}`);
+  } finally {
+    actingOnSuggestion.value = '';
+  }
+}
+
+async function rejectSuggestion(s: TagSuggestion) {
+  if (actingOnSuggestion.value) return;
+  actingOnSuggestion.value = s.id;
+  try {
+    await api.rejectTagSuggestion(s.id);
+    tagSuggestions.value = tagSuggestions.value.filter((x) => x.id !== s.id);
+  } catch (e) {
+    toast(`操作失败:${(e as Error).message}`);
+  } finally {
+    actingOnSuggestion.value = '';
+  }
+}
 
 interface Segment {
   text: string;
@@ -51,11 +93,13 @@ const noteCount = computed(() => (article.value ? notesForArticle(article.value.
 
 async function load(id: string) {
   article.value = null;
+  tagSuggestions.value = [];
   emit('loaded', null);
   try {
     article.value = await api.getArticle(id);
     emit('loaded', article.value);
     window.scrollTo(0, 0);
+    loadTagSuggestions(id);
   } catch (e) {
     const err = e as { status?: number; message: string };
     toast(err.status === 404 ? '文章不存在' : `打开失败:${err.message}`);
@@ -151,6 +195,23 @@ function cancelNote() {
 
       <div v-if="article.tags && article.tags.length" class="r-tags">
         <span v-for="t in article.tags" :key="t" class="tag">{{ t }}</span>
+      </div>
+
+      <div v-if="tagSuggestions.length" class="r-tag-suggestions">
+        <span class="tgs-label">🏷 待确认标签</span>
+        <div v-for="s in tagSuggestions" :key="s.id" class="tgs-item">
+          <span class="tgs-name">{{ s.name }}</span>
+          <button
+            class="tgs-accept"
+            :disabled="!!actingOnSuggestion"
+            @click="acceptSuggestion(s)"
+          >✓ 加入</button>
+          <button
+            class="tgs-reject"
+            :disabled="!!actingOnSuggestion"
+            @click="rejectSuggestion(s)"
+          >✕</button>
+        </div>
       </div>
 
       <DistillCard :article="article" />

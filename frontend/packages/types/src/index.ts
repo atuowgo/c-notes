@@ -141,3 +141,13 @@ export interface ChatMessage {
   content: string;
   sources?: string[];
 }
+
+/** 标签建议(LLM 提议的受控集外标签,用户可接受→新建标签 or 拒绝) */
+export interface TagSuggestion {
+  id: string;
+  articleId: string;
+  name: string;
+  confidence?: number;
+  status: 'pending' | 'accepted' | 'rejected';
+  createTime: string;
+}
