@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 public class Note {
     @TableId(type = IdType.ASSIGN_UUID)
     private String id;
+    private String ownerId;       // 想法作者 app_user.id(多用户隔离)
     private String articleId;
     private String quote;
     private String thought;

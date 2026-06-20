@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 public class Tag {
     @TableId(type = IdType.ASSIGN_UUID)
     private String id;
+    private String ownerId;                 // 标签所有者 app_user.id(私有标签池)
     private String name;
     private String description;
     private String livingSummary;          // 演进式综述(知识网 V3)

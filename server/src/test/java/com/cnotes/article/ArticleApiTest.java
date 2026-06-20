@@ -26,9 +26,13 @@ class ArticleApiTest {
     @Autowired TagMapper tagMapper;
     @Autowired ArticleTagMapper articleTagMapper;
 
+    /** 测试默认以系统用户(匿名)身份读收件箱,故落库文章归属系统用户方可见。 */
+    private static final String OWNER = com.cnotes.auth.entity.User.SYSTEM_ID;
+
     private String seed() {
         String h = java.util.UUID.randomUUID().toString().replace("-", "");
         Article a = new Article();
+        a.setOwnerId(OWNER);
         a.setUrl("https://e.com/list/" + h); a.setUrlHash(h);
         a.setTitle("收件箱标题"); a.setSummary("摘要"); a.setStatus("done");
         articleMapper.insert(a);
@@ -39,6 +43,7 @@ class ArticleApiTest {
     private String seedTitled(String title) {
         String h = java.util.UUID.randomUUID().toString().replace("-", "");
         Article a = new Article();
+        a.setOwnerId(OWNER);
         a.setUrl("https://e.com/pg/" + h); a.setUrlHash(h);
         a.setTitle(title); a.setStatus("done");
         articleMapper.insert(a);
@@ -54,6 +59,7 @@ class ArticleApiTest {
     private void seedTitledAt(String title, java.time.LocalDateTime createTime) {
         String h = java.util.UUID.randomUUID().toString().replace("-", "");
         Article a = new Article();
+        a.setOwnerId(OWNER);
         a.setUrl("https://e.com/pg/" + h); a.setUrlHash(h);
         a.setTitle(title); a.setStatus("done");
         a.setCreateTime(createTime);
@@ -85,6 +91,7 @@ class ArticleApiTest {
     void detailDeserializesKeyPoints() throws Exception {
         String h = java.util.UUID.randomUUID().toString().replace("-", "");
         Article a = new Article();
+        a.setOwnerId(OWNER);
         a.setUrl("https://e.com/kp/" + h); a.setUrlHash(h);
         a.setTitle("要点文章"); a.setStatus("done"); a.setSourceType("wechat");
         a.setKeyPoints("[\"要点A\",\"要点B\",\"要点C\"]");
@@ -157,6 +164,7 @@ class ArticleApiTest {
     void cardAndDetailExposeTagsAndUrl() throws Exception {
         String h = java.util.UUID.randomUUID().toString().replace("-", "");
         Article a = new Article();
+        a.setOwnerId(OWNER);
         a.setUrl("https://e.com/tagged/" + h); a.setUrlHash(h);
         a.setTitle("带标签的文章"); a.setStatus("done");
         articleMapper.insert(a);

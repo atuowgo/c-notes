@@ -159,3 +159,15 @@ export interface TagSuggestion {
   status: 'pending' | 'accepted' | 'rejected';
   createTime: string;
 }
+
+/** 当前登录用户(多用户阶段 1);未登录时 me() 返回 null */
+export interface CurrentUser {
+  id: string;
+  email: string | null;
+  nickname: string | null;
+  avatarUrl: string | null;
+  defaultShareLevel: string;
+}
+
+/** 三方登录渠道 */
+export type AuthProvider = 'github' | 'google' | 'wechat';

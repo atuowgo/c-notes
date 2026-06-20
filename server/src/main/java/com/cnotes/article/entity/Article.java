@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 public class Article {
     @TableId(type = IdType.ASSIGN_UUID)
     private String id;
+    private String ownerId;       // 所有者 app_user.id(多用户隔离)
     private String url;
     private String urlHash;
     private String title;

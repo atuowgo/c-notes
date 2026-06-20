@@ -20,4 +20,17 @@ class SchemaMigrationTest {
             "('article','tag','article_tag','tag_suggestion','note')", Integer.class);
         assertThat(n).isEqualTo(5);
     }
+
+    @Test
+    void multiUserTablesExistAndSystemUserSeeded() {
+        Integer tables = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM information_schema.tables " +
+            "WHERE LOWER(table_name) IN ('app_user','auth_identity')", Integer.class);
+        assertThat(tables).isEqualTo(2);
+
+        Integer sys = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM app_user WHERE id = '00000000000000000000000000000001'", Integer.class);
+        assertThat(sys).isEqualTo(1);
+    }
+
 }

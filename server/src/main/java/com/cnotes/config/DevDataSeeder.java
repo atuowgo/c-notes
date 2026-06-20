@@ -72,6 +72,7 @@ public class DevDataSeeder implements CommandLineRunner {
                 .stream().findFirst().orElse(null);
             if (tag == null) {
                 tag = new Tag();
+                tag.setOwnerId(com.cnotes.auth.entity.User.SYSTEM_ID);
                 tag.setName(name);
                 tagMapper.insert(tag);
             }
@@ -84,6 +85,7 @@ public class DevDataSeeder implements CommandLineRunner {
 
     private Article base(String url, String title, String author, String source, String content) {
         Article a = new Article();
+        a.setOwnerId(com.cnotes.auth.entity.User.SYSTEM_ID);
         a.setUrl(url);
         a.setUrlHash(Hashing.md5Hex(url));
         a.setTitle(title);

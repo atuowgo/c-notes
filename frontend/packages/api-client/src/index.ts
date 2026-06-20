@@ -1,8 +1,10 @@
 import type {
   ArticleCard,
   ArticleDetail,
+  AuthProvider,
   ChatReply,
   ChatRequest,
+  CurrentUser,
   ClusterCard,
   ClusterDetail,
   ClusterSuggestion,
@@ -65,6 +67,14 @@ export interface CnotesClient {
   acceptTagSuggestion(id: string): Promise<TagSuggestion>;
   /** 拒绝标签建议 */
   rejectTagSuggestion(id: string): Promise<TagSuggestion>;
+  /** 多用户:当前登录用户;未登录返回 null */
+  me(): Promise<CurrentUser | null>;
+  /** 多用户:取三方授权跳转 URL(前端 window.location 跳转) */
+  oauthAuthorizeUrl(provider: AuthProvider): Promise<string>;
+  /** 本地/测试登录:按 handle 建会话(生产关闭),便于端到端联调 */
+  devLogin(handle: string, nickname?: string): Promise<CurrentUser>;
+  /** 退出登录:清会话 cookie */
+  logout(): Promise<void>;
 }
 
 /**
@@ -77,13 +87,15 @@ export function createClient(baseUrl = ''): CnotesClient {
   const base = baseUrl.replace(/\/$/, '');
 
   async function request<T>(path: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(`${base}${path}`, init);
+    // credentials:'include' 让会话 cookie(cnotes_token)随请求发送(同源/跨源皆可)。
+    const res = await fetch(`${base}${path}`, { credentials: 'include', ...init });
     if (!res.ok) {
       const data = (await res.json().catch(() => null)) as { message?: string } | null;
       throw new ApiError(res.status, data?.message ?? `HTTP ${res.status}`);
     }
     if (res.status === 204) return undefined as T;
-    return res.json() as Promise<T>;
+    const text = await res.text();
+    return (text ? JSON.parse(text) : undefined) as T;   // /me 未登录返回 200 空体 → null
   }
 
   const jsonBody = (method: string, body: unknown): RequestInit => ({
@@ -166,5 +178,16 @@ export function createClient(baseUrl = ''): CnotesClient {
 
     rejectTagSuggestion: (id) =>
       request<TagSuggestion>(`/api/tags/suggestions/${encodeURIComponent(id)}/reject`, { method: 'POST' }),
+
+    me: () => request<CurrentUser | null>('/api/auth/me').then((u) => u ?? null),
+
+    oauthAuthorizeUrl: (provider) =>
+      request<{ authorizeUrl: string }>(`/api/auth/login/${encodeURIComponent(provider)}`)
+        .then((r) => r.authorizeUrl),
+
+    devLogin: (handle, nickname) =>
+      request<CurrentUser>('/api/auth/dev-login', jsonBody('POST', { handle, nickname: nickname ?? handle })),
+
+    logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
   };
 }

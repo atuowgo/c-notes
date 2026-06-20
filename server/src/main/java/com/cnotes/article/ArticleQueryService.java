@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cnotes.article.dto.*;
 import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
+import com.cnotes.auth.UserContext;
 import com.cnotes.tag.entity.ArticleTag;
 import com.cnotes.tag.entity.Tag;
 import com.cnotes.tag.mapper.ArticleTagMapper;
@@ -34,7 +35,9 @@ public class ArticleQueryService {
         int s = Math.min(Math.max(1, size), 100);
         Page<Article> pg = articleMapper.selectPage(
             Page.of(p, s),
-            Wrappers.<Article>lambdaQuery().orderByDesc(Article::getCreateTime));
+            Wrappers.<Article>lambdaQuery()
+                .eq(Article::getOwnerId, UserContext.currentOrSystem())
+                .orderByDesc(Article::getCreateTime));
         List<Article> articles = pg.getRecords();
         Map<String, List<String>> tagsByArticle =
             tagsByArticle(articles.stream().map(Article::getId).toList());
@@ -46,7 +49,8 @@ public class ArticleQueryService {
 
     public ArticleDetailDto detail(String id) {
         Article a = articleMapper.selectById(id);
-        if (a == null) return null;
+        // 仅本人可见:他人文章按「不存在」处理(404),不泄露存在性。
+        if (a == null || !UserContext.currentOrSystem().equals(a.getOwnerId())) return null;
         ArticleDetailDto d = new ArticleDetailDto();
         d.setId(a.getId()); d.setTitle(a.getTitle()); d.setAuthor(a.getAuthor());
         d.setSummary(a.getSummary()); d.setContent(a.getContent()); d.setStatus(a.getStatus());

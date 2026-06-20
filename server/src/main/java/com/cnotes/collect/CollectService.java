@@ -3,6 +3,7 @@ package com.cnotes.collect;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
+import com.cnotes.auth.UserContext;
 import com.cnotes.collect.dto.CollectRequest;
 import com.cnotes.common.Hashing;
 import lombok.RequiredArgsConstructor;
@@ -18,11 +19,13 @@ public class CollectService {
 
     @Transactional
     public String collect(CollectRequest req) {
+        String owner = UserContext.currentOrSystem();
         String urlHash = Hashing.md5Hex(req.getUrl());
-        String existing = findIdByHash(urlHash);
+        String existing = findIdByHash(owner, urlHash);
         if (existing != null) return existing;
 
         Article a = new Article();
+        a.setOwnerId(owner);
         a.setUrl(req.getUrl());
         a.setUrlHash(urlHash);
         a.setTitle(req.getTitle());
@@ -37,16 +40,19 @@ public class CollectService {
             articleMapper.insert(a);
             return a.getId();
         } catch (DuplicateKeyException dup) {
-            // 并发同 URL:唯一索引 uk_url_hash 兜底,回查已存在记录,保持幂等
-            String raced = findIdByHash(urlHash);
+            // 并发同 URL:唯一索引 uk_owner_url 兜底,回查本人已存在记录,保持幂等
+            String raced = findIdByHash(owner, urlHash);
             if (raced != null) return raced;
             throw dup;
         }
     }
 
-    private String findIdByHash(String urlHash) {
+    /** 幂等回查按所有者隔离:同一 URL 不同用户各存各的副本,互不可见。 */
+    private String findIdByHash(String owner, String urlHash) {
         Article existing = articleMapper.selectOne(
-            Wrappers.<Article>lambdaQuery().eq(Article::getUrlHash, urlHash));
+            Wrappers.<Article>lambdaQuery()
+                .eq(Article::getOwnerId, owner)
+                .eq(Article::getUrlHash, urlHash));
         return existing == null ? null : existing.getId();
     }
 }

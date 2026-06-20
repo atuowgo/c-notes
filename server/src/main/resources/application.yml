@@ -47,3 +47,26 @@ extract:
     # 默认关闭;开启需安装 Chromium(npx playwright install chromium 或 Playwright CLI)。
     enabled: ${HEADLESS_ENABLED:false}
     timeout-ms: 20000
+auth:
+  # 多用户阶段 1:会话 JWT(HS256)。密钥仅来自环境变量,严禁写入仓库;生产必须覆盖。
+  jwt:
+    secret: ${AUTH_JWT_SECRET:dev-only-insecure-secret-change-me-in-prod}
+  # 本地/测试登录开关:生产务必置 false(经 AUTH_DEV_LOGIN=false)。
+  dev-login:
+    enabled: ${AUTH_DEV_LOGIN:true}
+  # 三方回调后跳回的前端地址。
+  frontend-url: ${AUTH_FRONTEND_URL:/}
+  # 三方授权 client 凭据:仅来自环境变量,严禁写入仓库;未配置则对应渠道登录入口返回 503。
+  oauth:
+    github:
+      client-id: ${GITHUB_CLIENT_ID:}
+      client-secret: ${GITHUB_CLIENT_SECRET:}
+      redirect-uri: ${GITHUB_REDIRECT_URI:}
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
+      redirect-uri: ${GOOGLE_REDIRECT_URI:}
+    wechat:
+      app-id: ${WECHAT_OAUTH_APPID:}
+      app-secret: ${WECHAT_OAUTH_SECRET:}
+      redirect-uri: ${WECHAT_OAUTH_REDIRECT_URI:}

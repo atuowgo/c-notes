@@ -3,6 +3,7 @@ package com.cnotes.note;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
+import com.cnotes.auth.UserContext;
 import com.cnotes.note.dto.*;
 import com.cnotes.note.entity.Note;
 import com.cnotes.note.mapper.NoteMapper;
@@ -55,6 +56,7 @@ public class NoteService {
     @Transactional
     public NoteDto create(CreateNoteRequest req) {
         Note n = new Note();
+        n.setOwnerId(UserContext.currentOrSystem());
         n.setArticleId(req.getArticleId());
         n.setQuote(req.getQuote());
         n.setThought(req.getThought());
@@ -65,7 +67,8 @@ public class NoteService {
 
     /** 列表:可按 articleId 过滤(本文想法),可按 q 全文检索 quote/thought(跨端可检索)。 */
     public List<NoteDto> list(String articleId, String q) {
-        var query = Wrappers.<Note>lambdaQuery();
+        var query = Wrappers.<Note>lambdaQuery()
+            .eq(Note::getOwnerId, UserContext.currentOrSystem());
         if (articleId != null && !articleId.isBlank()) {
             query.eq(Note::getArticleId, articleId);
         }
