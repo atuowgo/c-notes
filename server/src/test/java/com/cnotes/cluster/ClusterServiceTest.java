@@ -53,9 +53,13 @@ class ClusterServiceTest {
         articleTagMapper.insert(t);
     }
 
+    // 无登录上下文下当前用户回退系统用户;簇(标签)须归属系统用户才可见/可操作。
+    private static final String OWNER = com.cnotes.auth.entity.User.SYSTEM_ID;
+
     @Test
     void listDetailAndStalenessThenRegenerate() {
         Tag tag = new Tag(); tag.setName("知识网测试簇-" + java.util.UUID.randomUUID());
+        tag.setOwnerId(OWNER);
         tagMapper.insert(tag);
         String a1 = seedDoneArticle("文甲");
         String a2 = seedDoneArticle("文乙");
@@ -91,6 +95,7 @@ class ClusterServiceTest {
     @Test
     void singleArticleClusterIsNotStale() {
         Tag tag = new Tag(); tag.setName("单篇簇-" + java.util.UUID.randomUUID());
+        tag.setOwnerId(OWNER);
         tagMapper.insert(tag);
         link(seedDoneArticle("独苗"), tag.getId());
         // 仅 1 篇 < min(2),不应进入待写综述
@@ -99,6 +104,7 @@ class ClusterServiceTest {
 
     private Tag newTag(String label) {
         Tag t = new Tag(); t.setName(label + "-" + java.util.UUID.randomUUID());
+        t.setOwnerId(OWNER);
         tagMapper.insert(t);
         return t;
     }
@@ -171,5 +177,24 @@ class ClusterServiceTest {
     void suggestionsEmptyWhenTooFewArticles() {
         // <3 篇 done 时不调用 LLM,直接空
         assertThat(clusterService.suggestions()).isEmpty();
+    }
+
+    @Test
+    void clustersAreIsolatedPerOwner() {
+        // 别的用户的簇:当前(系统)用户列表看不到、详情按 404、写操作被拒。
+        Tag others = new Tag(); others.setName("他人簇-" + java.util.UUID.randomUUID());
+        others.setOwnerId("z".repeat(32));
+        tagMapper.insert(others);
+        String a = seedDoneArticle("他人文章");
+        link(a, others.getId());
+
+        assertThat(clusterService.listClusters()).extracting("id").doesNotContain(others.getId());
+        assertThat(clusterService.detail(others.getId())).isNull();
+
+        Tag mine = newTag("我的簇");
+        link(seedDoneArticle("我的文章"), mine.getId());
+        org.junit.jupiter.api.Assertions.assertThrows(
+            org.springframework.web.server.ResponseStatusException.class,
+            () -> clusterService.merge(others.getId(), mine.getId()));   // 不能动他人簇
     }
 }

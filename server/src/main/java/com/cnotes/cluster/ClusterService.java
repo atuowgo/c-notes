@@ -20,8 +20,10 @@ import org.slf4j.LoggerFactory;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -69,7 +71,9 @@ public class ClusterService {
 
     public List<ClusterCardDto> listClusters() {
         Map<String, Integer> counts = doneCountByTag();
-        return tagMapper.selectList(null).stream()
+        // 多用户隔离:知识网是「我的」私域,只列当前用户自己的簇(标签)。
+        return tagMapper.selectList(Wrappers.<Tag>lambdaQuery().eq(Tag::getOwnerId, UserContext.currentOrSystem()))
+            .stream()
             .filter(t -> !Boolean.TRUE.equals(t.getArchived()))   // 合并归档的源簇不再出现在列表
             .map(t -> {
                 int n = counts.getOrDefault(t.getId(), 0);
@@ -87,7 +91,8 @@ public class ClusterService {
 
     public ClusterDetailDto detail(String tagId) {
         Tag t = tagMapper.selectById(tagId);
-        if (t == null) return null;
+        // 多用户隔离:非本人簇按不存在处理(404),不泄露他人知识网。
+        if (t == null || !UserContext.currentOrSystem().equals(t.getOwnerId())) return null;
         List<Article> members = memberArticles(tagId);
         ClusterDetailDto d = new ClusterDetailDto();
         d.setId(t.getId()); d.setName(t.getName()); d.setDescription(t.getDescription());
@@ -126,6 +131,8 @@ public class ClusterService {
     /** 把一篇文章从本簇(fromTagId=id)移到另一簇,改投为用户钉选;两簇均触发重写综述。 */
     @Transactional
     public ClusterDetailDto moveArticle(String fromTagId, String articleId, String toClusterId) {
+        requireOwnedTag(fromTagId);
+        requireOwnedTag(toClusterId);
         articleTagMapper.delete(Wrappers.<ArticleTag>lambdaQuery()
             .eq(ArticleTag::getArticleId, articleId).eq(ArticleTag::getTagId, fromTagId));
         pin(articleId, toClusterId);
@@ -137,6 +144,8 @@ public class ClusterService {
     /** 合并:fromId 的全部成员并入 toId,登记重定向并归档 fromId;toId 触发重写综述。 */
     @Transactional
     public ClusterDetailDto merge(String fromId, String toId) {
+        requireOwnedTag(fromId);
+        requireOwnedTag(toId);
         List<ArticleTag> fromLinks = articleTagMapper.selectList(
             Wrappers.<ArticleTag>lambdaQuery().eq(ArticleTag::getTagId, fromId));
         for (ArticleTag link : fromLinks) {
@@ -159,6 +168,7 @@ public class ClusterService {
     /** 拆分:把 sourceId 下选定的文章迁到一个(新建或同名复用的)簇,改投为用户钉选。 */
     @Transactional
     public ClusterDetailDto split(String sourceId, String name, List<String> articleIds) {
+        requireOwnedTag(sourceId);
         String newTagId = findOrCreateTag(name);
         for (String articleId : articleIds) {
             articleTagMapper.delete(Wrappers.<ArticleTag>lambdaQuery()
@@ -184,8 +194,10 @@ public class ClusterService {
     /** 语义建议簇:LLM 在现有(未归档)标签盲区里提议最多 3 个新主题;任何异常或样本不足返回空。 */
     public List<ClusterSuggestionDto> suggestions() {
         try {
+            String owner = UserContext.currentOrSystem();
             List<Article> done = articleMapper.selectList(Wrappers.<Article>lambdaQuery()
-                .eq(Article::getStatus, "done").orderByDesc(Article::getCreateTime));
+                .eq(Article::getStatus, "done").eq(Article::getOwnerId, owner)   // 仅本人文章
+                .orderByDesc(Article::getCreateTime));
             if (done.size() < 3) return List.of();
 
             Map<String, Article> byId = done.stream()
@@ -193,7 +205,8 @@ public class ClusterService {
             List<ClusterSuggester.ArticleBrief> briefs = done.stream()
                 .map(a -> new ClusterSuggester.ArticleBrief(a.getId(), a.getTitle(), a.getSummary()))
                 .toList();
-            List<String> existing = tagMapper.selectList(null).stream()
+            List<String> existing = tagMapper.selectList(
+                    Wrappers.<Tag>lambdaQuery().eq(Tag::getOwnerId, owner)).stream()   // 仅本人受控集
                 .filter(t -> !Boolean.TRUE.equals(t.getArchived()))
                 .map(Tag::getName).toList();
 
@@ -226,7 +239,8 @@ public class ClusterService {
     public List<ClusterSuggestionDto> vectorSuggestions() {
         try {
             List<Article> done = articleMapper.selectList(Wrappers.<Article>lambdaQuery()
-                .eq(Article::getStatus, "done").orderByDesc(Article::getCreateTime));
+                .eq(Article::getStatus, "done").eq(Article::getOwnerId, UserContext.currentOrSystem())  // 仅本人文章
+                .orderByDesc(Article::getCreateTime));
             if (done.size() < vectorMinPts) return List.of();
 
             // 1) 逐篇向量化(标题 + 摘要),与文章列表对齐。
@@ -329,6 +343,14 @@ public class ClusterService {
         at.setArticleId(articleId); at.setTagId(tagId);
         at.setSource("user"); at.setConfidence(BigDecimal.ONE);
         articleTagMapper.insert(at);
+    }
+
+    /** 写操作归属守卫:目标簇必须属于当前用户,否则按不存在处理(404)。 */
+    private void requireOwnedTag(String tagId) {
+        Tag t = tagMapper.selectById(tagId);
+        if (t == null || !UserContext.currentOrSystem().equals(t.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
     }
 
     /** 同名复用(私有标签池:按所有者范围内同名),否则新建标签;返回标签 id。 */

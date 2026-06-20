@@ -44,12 +44,13 @@ class ClusterApiTest {
         Article a = new Article();
         a.setUrl("https://e.com/ca/" + h); a.setUrlHash(h);
         a.setTitle(title); a.setSummary("摘要"); a.setStatus("done"); a.setKeyPoints("[\"k\"]");
+        a.setOwnerId(com.cnotes.auth.entity.User.SYSTEM_ID);   // 无登录态归属系统用户
         articleMapper.insert(a);
         return a.getId();
     }
 
     private Tag seedClusterWithTwo(String name) {
-        Tag tag = new Tag(); tag.setName(name); tagMapper.insert(tag);
+        Tag tag = new Tag(); tag.setName(name); tag.setOwnerId(com.cnotes.auth.entity.User.SYSTEM_ID); tagMapper.insert(tag);
         for (String aid : new String[]{seedDone("甲"), seedDone("乙")}) {
             ArticleTag t = new ArticleTag(); t.setArticleId(aid); t.setTagId(tag.getId());
             articleTagMapper.insert(t);
@@ -95,8 +96,8 @@ class ClusterApiTest {
 
     @Test
     void moveArticleEndpointMovesMembership() throws Exception {
-        Tag from = new Tag(); from.setName("移源-" + java.util.UUID.randomUUID()); tagMapper.insert(from);
-        Tag to = new Tag(); to.setName("移标-" + java.util.UUID.randomUUID()); tagMapper.insert(to);
+        Tag from = new Tag(); from.setName("移源-" + java.util.UUID.randomUUID()); from.setOwnerId(com.cnotes.auth.entity.User.SYSTEM_ID); tagMapper.insert(from);
+        Tag to = new Tag(); to.setName("移标-" + java.util.UUID.randomUUID()); to.setOwnerId(com.cnotes.auth.entity.User.SYSTEM_ID); tagMapper.insert(to);
         String a = link(seedDone("待移"), from.getId());
 
         mvc.perform(post("/api/clusters/" + from.getId() + "/move-article")
@@ -109,8 +110,8 @@ class ClusterApiTest {
 
     @Test
     void mergeEndpointArchivesSourceAndHidesIt() throws Exception {
-        Tag from = new Tag(); from.setName("并源-" + java.util.UUID.randomUUID()); tagMapper.insert(from);
-        Tag to = new Tag(); to.setName("并标-" + java.util.UUID.randomUUID()); tagMapper.insert(to);
+        Tag from = new Tag(); from.setName("并源-" + java.util.UUID.randomUUID()); from.setOwnerId(com.cnotes.auth.entity.User.SYSTEM_ID); tagMapper.insert(from);
+        Tag to = new Tag(); to.setName("并标-" + java.util.UUID.randomUUID()); to.setOwnerId(com.cnotes.auth.entity.User.SYSTEM_ID); tagMapper.insert(to);
         String a = link(seedDone("并文"), from.getId());
 
         mvc.perform(post("/api/clusters/merge")
@@ -128,7 +129,7 @@ class ClusterApiTest {
 
     @Test
     void splitEndpointCreatesNewCluster() throws Exception {
-        Tag source = new Tag(); source.setName("拆源-" + java.util.UUID.randomUUID()); tagMapper.insert(source);
+        Tag source = new Tag(); source.setName("拆源-" + java.util.UUID.randomUUID()); source.setOwnerId(com.cnotes.auth.entity.User.SYSTEM_ID); tagMapper.insert(source);
         String a1 = link(seedDone("拆甲"), source.getId());
         link(seedDone("拆乙"), source.getId());
         String newName = "拆新-" + java.util.UUID.randomUUID();
@@ -221,7 +222,7 @@ class ClusterApiTest {
         String marker = "GNN" + java.util.UUID.randomUUID().toString().replace("-", "");
         String a1 = seedDone(marker + " 图神经网络综述");
         String a2 = seedDone(marker + " 图神经网络应用");
-        Tag tag = new Tag(); tag.setName("GNN-" + java.util.UUID.randomUUID()); tagMapper.insert(tag);
+        Tag tag = new Tag(); tag.setName("GNN-" + java.util.UUID.randomUUID()); tag.setOwnerId(com.cnotes.auth.entity.User.SYSTEM_ID); tagMapper.insert(tag);
         link(a1, tag.getId()); link(a2, tag.getId());
         stubEmbeddingWithMarker(marker);
 
