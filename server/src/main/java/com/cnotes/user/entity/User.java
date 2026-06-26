@@ -1,19 +1,16 @@
-package com.cnotes.note.entity;
+package com.cnotes.user.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("note")
-public class Note {
+@TableName("`user`")   // 反引号:`user` 在 H2 为保留字,MySQL/H2(MySQL 模式)均支持反引号引用
+public class User {
     @TableId(type = IdType.ASSIGN_UUID)
     private String id;
-    private String ownerId;      // 所有者用户 id(A1 隔离);可空
-    private String articleId;
-    private String quote;
-    private String thought;
-    private String anchor;        // JSON 文本 {start,end},Service 层(反)序列化
+    private String username;
+    private String passwordHash;
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)

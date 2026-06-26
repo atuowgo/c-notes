@@ -6,6 +6,7 @@ import com.cnotes.article.mapper.ArticleMapper;
 import com.cnotes.chat.vector.KnowledgeRetriever;
 import com.cnotes.note.entity.Note;
 import com.cnotes.note.mapper.NoteMapper;
+import com.cnotes.user.CurrentUserResolver;
 import lombok.RequiredArgsConstructor;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -32,6 +33,7 @@ public class ChatContextAssembler {
     private final NoteMapper noteMapper;
     private final KnowledgeRetriever knowledgeRetriever;
     private final ObjectMapper om;
+    private final CurrentUserResolver currentUser;
 
     @Value("${chat.knowledge.top-k:3}")
     private int knowledgeTopK;
@@ -54,8 +56,11 @@ public class ChatContextAssembler {
                 sb.append("要点:\n");
                 for (String p : points) sb.append(" - ").append(p).append("\n");
             }
-            List<Note> notes = noteMapper.selectList(
-                Wrappers.<Note>lambdaQuery().eq(Note::getArticleId, articleId));
+            // 批注按当前用户过滤(只取自己的;测试/匿名退化为 owner_id IS NULL)
+            String oid = currentUser.currentUserId();
+            var noteQuery = Wrappers.<Note>lambdaQuery().eq(Note::getArticleId, articleId);
+            if (oid != null) noteQuery.eq(Note::getOwnerId, oid); else noteQuery.isNull(Note::getOwnerId);
+            List<Note> notes = noteMapper.selectList(noteQuery);
             if (!notes.isEmpty()) {
                 sb.append("【我的批注】\n");
                 for (Note n : notes) {

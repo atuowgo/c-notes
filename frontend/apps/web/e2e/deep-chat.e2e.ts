@@ -11,7 +11,13 @@ import { test, expect } from '@playwright/test';
  *     chat_message 行级落库由后端集成测试 ChatPersistenceTest 针对同一 H2 断言)。
  */
 test('深聊:浏览器穿过 nginx→后端→向量库→DeepSeek,回复带 📄/🕸 来源', async ({ page }) => {
-  await page.goto('/');
+  // A1 鉴权:未登录访问 / 会被守卫跳到 /login。用 DevDataSeeder 在 dev profile
+  // 创建的 demo 账号(demo/demo123,样本文章已回填归属它)登录后再进入收件箱。
+  await page.goto('/login');
+  await page.fill('input[autocomplete="username"]', 'demo');
+  await page.fill('input[autocomplete="current-password"]', 'demo123');
+  await page.getByRole('button', { name: /登录/ }).click();
+  await page.waitForURL('/');
 
   // 收件箱加载出已就绪的「Attention Is All You Need」卡片(done 才可点开)。
   const card = page.locator('.card', { hasText: 'Attention Is All You Need' });

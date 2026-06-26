@@ -1,10 +1,12 @@
 package com.cnotes.collect;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.cnotes.article.ArticleService;
 import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
 import com.cnotes.collect.dto.CollectRequest;
 import com.cnotes.common.Hashing;
+import com.cnotes.user.CurrentUserResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -15,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class CollectService {
 
     private final ArticleMapper articleMapper;
+    private final ArticleService articleService;
+    private final CurrentUserResolver currentUser;
 
     @Transactional
     public String collect(CollectRequest req) {
@@ -23,6 +27,7 @@ public class CollectService {
         if (existing != null) return existing;
 
         Article a = new Article();
+        a.setOwnerId(currentUser.currentUserId());
         a.setUrl(req.getUrl());
         a.setUrlHash(urlHash);
         a.setTitle(req.getTitle());
@@ -33,7 +38,7 @@ public class CollectService {
         a.setStatus("pending");
         a.setRetryCount(0);
         try {
-            articleMapper.insert(a);
+            articleService.save(a);   // 落盘决策(超阈值正文)+ insert
             return a.getId();
         } catch (DuplicateKeyException dup) {
             // 并发同 URL:唯一索引 uk_url_hash 兜底,回查已存在记录,保持幂等

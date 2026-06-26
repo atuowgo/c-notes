@@ -13,3 +13,10 @@ spring:
 worker:
   scheduling:
     enabled: false   # 测试环境关闭定时轮询,防止后台 Worker 污染全表断言
+jwt:
+  # 测试专用密钥(>=256bit),仅供 JwtService 构造;生产密钥见主 application.yml(env 注入)
+  secret: test-only-secret-not-for-production-use-a-long-random-string-32plus
+  expiry: PT1h
+cnotes:
+  security:
+    enabled: false   # 测试全放行:现有用例无 token 仍可直连,owner 隔离退化为 owner_id IS NULL

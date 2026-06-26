@@ -6,6 +6,7 @@ import com.cnotes.article.mapper.ArticleMapper;
 import com.cnotes.note.dto.*;
 import com.cnotes.note.entity.Note;
 import com.cnotes.note.mapper.NoteMapper;
+import com.cnotes.user.CurrentUserResolver;
 import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -22,10 +24,12 @@ public class NoteService {
     private final NoteMapper noteMapper;
     private final ArticleMapper articleMapper;
     private final ObjectMapper om;
+    private final CurrentUserResolver currentUser;
 
     @Transactional
     public NoteDto create(CreateNoteRequest req) {
         Note n = new Note();
+        n.setOwnerId(currentUser.currentUserId());
         n.setArticleId(req.getArticleId());
         n.setQuote(req.getQuote());
         n.setThought(req.getThought());
@@ -34,9 +38,11 @@ public class NoteService {
         return toDto(n, titlesFor(List.of(n.getArticleId())));
     }
 
-    /** 列表:可按 articleId 过滤(本文想法),可按 q 全文检索 quote/thought(跨端可检索)。 */
+    /** 列表:按当前用户过滤;可按 articleId 过滤(本文想法),可按 q 全文检索 quote/thought。 */
     public List<NoteDto> list(String articleId, String q) {
+        String oid = currentUser.currentUserId();
         var query = Wrappers.<Note>lambdaQuery();
+        if (oid != null) query.eq(Note::getOwnerId, oid); else query.isNull(Note::getOwnerId);
         if (articleId != null && !articleId.isBlank()) {
             query.eq(Note::getArticleId, articleId);
         }
@@ -53,7 +59,7 @@ public class NoteService {
     @Transactional
     public NoteDto update(String id, UpdateNoteRequest req) {
         Note n = noteMapper.selectById(id);
-        if (n == null) return null;
+        if (n == null || !Objects.equals(n.getOwnerId(), currentUser.currentUserId())) return null;
         n.setThought(req.getThought());
         noteMapper.updateById(n);
         return toDto(n, titlesFor(List.of(n.getArticleId())));
@@ -61,6 +67,8 @@ public class NoteService {
 
     @Transactional
     public boolean delete(String id) {
+        Note n = noteMapper.selectById(id);
+        if (n == null || !Objects.equals(n.getOwnerId(), currentUser.currentUserId())) return false;
         return noteMapper.deleteById(id) > 0;
     }
 

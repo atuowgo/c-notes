@@ -32,6 +32,14 @@ mybatis-plus:
       id-type: assign_uuid
   configuration:
     map-underscore-to-camel-case: true
+# JWT 鉴权(A1):secret 仅来自环境变量,默认值仅供本地 dev(>=256bit);expiry 为 ISO-8601 时长。
+jwt:
+  secret: ${JWT_SECRET:dev-only-secret-change-me-in-production-please-use-a-long-random-string-32+}
+  expiry: ${JWT_EXPIRY:PT1h}
+cnotes:
+  security:
+    # true=启用 JWT 鉴权(生产);false=全放行(测试 profile 复用现有用例,无需逐条 mock 鉴权)。
+    enabled: ${CNOTES_SECURITY_ENABLED:true}
 worker:
   poll-interval-ms: 5000
   max-retry: 5
@@ -47,3 +55,7 @@ extract:
     # 默认关闭;开启需安装 Chromium(npx playwright install chromium 或 Playwright CLI)。
     enabled: ${HEADLESS_ENABLED:false}
     timeout-ms: 20000
+storage:
+  # 长正文落盘根目录;content 超过 threshold-chars 则写文件(名=uuid)、content 列置空、记 content_object_key。
+  root-dir: ${STORAGE_ROOT:./data/content}
+  threshold-chars: ${STORAGE_THRESHOLD:20000}

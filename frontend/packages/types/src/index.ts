@@ -5,6 +5,24 @@ export type ArticleStatus = 'pending' | 'processing' | 'done' | 'failed';
 
 export type SourceType = 'browser' | 'wechat';
 
+/** 鉴权:注册/登录载荷(对齐后端 AuthRequest) */
+export interface AuthCredentials {
+  username: string;
+  password: string;
+}
+
+/** 鉴权:注册/登录成功响应(对齐后端 AuthDto:JWT + 用户名) */
+export interface AuthToken {
+  token: string;
+  username: string;
+}
+
+/** 用户(当前登录者) */
+export interface User {
+  id: string;
+  username: string;
+}
+
 /** 收件箱卡片(不含正文) */
 export interface ArticleCard {
   id: string;
@@ -90,6 +108,55 @@ export interface ClusterDetail {
   summaryUpdatedAt?: string;
   articleCount: number;
   articles: ArticleCard[];
+}
+
+/** 簇纠偏:合并(source 簇全部并入 target,删 source) */
+export interface MergeClustersRequest {
+  sourceId: string;
+  targetId: string;
+}
+
+/** 簇纠偏:从当前簇拆出指定文章到新建簇 */
+export interface SplitClusterRequest {
+  articleIds: string[];
+  newTag: string;
+}
+
+/** 簇纠偏:单篇跨簇移动 */
+export interface MoveArticleRequest {
+  articleId: string;
+  targetTagId: string;
+}
+
+/** 语义簇卡片:由 embedding 自动聚类产出(非标签簇,无人工命名) */
+export interface AutoClusterCard {
+  id: string;
+  title?: string;
+  memberCount: number;
+  summary?: string;
+  hasSummary: boolean;
+  createTime: string;
+}
+
+/** 语义簇详情:簇元信息 + 成员文章卡片 */
+export interface AutoClusterDetail {
+  id: string;
+  title?: string;
+  memberCount: number;
+  summary?: string;
+  createTime: string;
+  articles: ArticleCard[];
+}
+
+/** 关联推荐关系类型(对齐后端 article_link.link_type) */
+export type LinkType = '相关' | '更深入' | '对立' | '互补';
+
+/** 文章关联推荐项(对齐后端 ArticleLinkDto):目标文章卡片 + 关系 + 理由 + 相似度 */
+export interface ArticleLink {
+  targetArticle: ArticleCard;
+  linkType: LinkType;
+  reason: string;
+  score: number;
 }
 
 /** 深聊角色:与后端 chat_message.role 对齐 */

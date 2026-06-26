@@ -1,5 +1,6 @@
 package com.cnotes.config;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
 import com.cnotes.common.Hashing;
@@ -7,15 +8,21 @@ import com.cnotes.tag.entity.ArticleTag;
 import com.cnotes.tag.entity.Tag;
 import com.cnotes.tag.mapper.ArticleTagMapper;
 import com.cnotes.tag.mapper.TagMapper;
+import com.cnotes.user.entity.User;
+import com.cnotes.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 /**
  * 仅 dev profile:表为空时灌入 3 条样本(已就绪/处理中/失败),
  * 让前端在无 LLM、无 MySQL 的情况下也能稳定演示三种卡片状态。
  * 生产 profile 不加载此 Bean。
+ *
+ * <p>A1 多用户:额外创建 demo 用户(demo/demo123),并把现有 seed 数据 owner_id 回填给它,
+ * 让登录后的演示账号能直接看到样本文章。
  */
 @Component
 @Profile("dev")
@@ -25,9 +32,16 @@ public class DevDataSeeder implements CommandLineRunner {
     private final ArticleMapper articleMapper;
     private final TagMapper tagMapper;
     private final ArticleTagMapper articleTagMapper;
+    private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder;
+
+    /** 当前 seed 批次归属的 demo 用户 id(run() 内赋值,供 base() 设置 owner_id)。 */
+    private String demoOwnerId;
 
     @Override
     public void run(String... args) {
+        this.demoOwnerId = ensureDemoUser();
+        backfillOwner(demoOwnerId);
         if (articleMapper.selectCount(null) > 0) return;
 
         Article attention = done(
@@ -84,6 +98,7 @@ public class DevDataSeeder implements CommandLineRunner {
 
     private Article base(String url, String title, String author, String source, String content) {
         Article a = new Article();
+        a.setOwnerId(demoOwnerId);
         a.setUrl(url);
         a.setUrlHash(Hashing.md5Hex(url));
         a.setTitle(title);
@@ -93,6 +108,25 @@ public class DevDataSeeder implements CommandLineRunner {
         a.setExtractMethod("readability");
         a.setRetryCount(0);
         return a;
+    }
+
+    /** 幂等创建 demo 用户(demo/demo123),返回其 id。 */
+    private String ensureDemoUser() {
+        User existing = userMapper.selectOne(
+            Wrappers.<User>lambdaQuery().eq(User::getUsername, "demo"));
+        if (existing != null) return existing.getId();
+        User u = new User();
+        u.setUsername("demo");
+        u.setPasswordHash(passwordEncoder.encode("demo123"));
+        userMapper.insert(u);
+        return u.getId();
+    }
+
+    /** 历史/无主 article 回填给 demo 用户(owner_id IS NULL → demoId)。 */
+    private void backfillOwner(String ownerId) {
+        Article patch = new Article();
+        patch.setOwnerId(ownerId);
+        articleMapper.update(patch, Wrappers.<Article>lambdaUpdate().isNull(Article::getOwnerId));
     }
 
     private Article done(String url, String title, String author, String source,

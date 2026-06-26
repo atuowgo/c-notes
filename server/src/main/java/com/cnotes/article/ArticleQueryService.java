@@ -9,6 +9,7 @@ import com.cnotes.tag.entity.ArticleTag;
 import com.cnotes.tag.entity.Tag;
 import com.cnotes.tag.mapper.ArticleTagMapper;
 import com.cnotes.tag.mapper.TagMapper;
+import com.cnotes.user.CurrentUserResolver;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -27,14 +29,18 @@ public class ArticleQueryService {
     private final ArticleTagMapper articleTagMapper;
     private final TagMapper tagMapper;
     private final ObjectMapper om;
+    private final CurrentUserResolver currentUser;
+    private final ArticleService articleService;
 
-    /** 分页收件箱:page 从 1 起,size 默认调用方给定;此处兜底夹取到 [1,100]。 */
+    /** 分页收件箱:page 从 1 起,size 默认调用方给定;此处兜底夹取到 [1,100]。按当前用户过滤。 */
     public ArticleCardPage listInbox(int page, int size) {
         int p = Math.max(1, page);
         int s = Math.min(Math.max(1, size), 100);
-        Page<Article> pg = articleMapper.selectPage(
-            Page.of(p, s),
-            Wrappers.<Article>lambdaQuery().orderByDesc(Article::getCreateTime));
+        String oid = currentUser.currentUserId();
+        var q = Wrappers.<Article>lambdaQuery();
+        if (oid != null) q.eq(Article::getOwnerId, oid); else q.isNull(Article::getOwnerId);
+        q.orderByDesc(Article::getCreateTime);
+        Page<Article> pg = articleMapper.selectPage(Page.of(p, s), q);
         List<Article> articles = pg.getRecords();
         Map<String, List<String>> tagsByArticle =
             tagsByArticle(articles.stream().map(Article::getId).toList());
@@ -47,6 +53,9 @@ public class ArticleQueryService {
     public ArticleDetailDto detail(String id) {
         Article a = articleMapper.selectById(id);
         if (a == null) return null;
+        // 非所有者视为不存在(404),避免泄露他人数据
+        if (!Objects.equals(a.getOwnerId(), currentUser.currentUserId())) return null;
+        articleService.hydrateContent(a);   // 长正文落盘者:从存储读回 content,对调用方透明
         ArticleDetailDto d = new ArticleDetailDto();
         d.setId(a.getId()); d.setTitle(a.getTitle()); d.setAuthor(a.getAuthor());
         d.setSummary(a.getSummary()); d.setContent(a.getContent()); d.setStatus(a.getStatus());
