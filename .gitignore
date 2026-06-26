@@ -35,6 +35,7 @@ temp/
 
 # ---- Local runtime state (vector store, nginx pid/temp, etc.) ----
 .data/
+.nginx/
 
 # ---- Playwright e2e 产物(报告/trace/截图,不入库) ----
 test-results/
@@ -55,3 +56,4 @@ target/
 
 # ---- Claude / tooling local state ----
 .claude/settings.local.json
+server/data/

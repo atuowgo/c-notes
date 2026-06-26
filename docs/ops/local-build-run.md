@@ -98,3 +98,87 @@ e2e 覆盖：浏览器打开 nginx 同源页 → 点开已就绪文章 →点「
 - Ark 返回 400 且报 model 不支持 → 用了纯文本 `/embeddings`，改 `/embeddings/multimodal`。
 - 向量维度不符 → 该模型固定 2048 维；`SimpleVectorStore` 不强校维度，混入旧维度向量会污染检索，换模型时删 `server/.data/vectorstore.json` 重建。
 - nginx 404 刷新 → 缺 `try_files ... /index.html` SPA 回退。
+
+## 9. Windows 环境（实测）
+
+> 本节为 Windows 11 + Git Bash 实跑记录，命令均可在 Git Bash 直接复制。与 §0-§8 的 macOS/Linux 视角互补，不替代之。
+
+### 9.1 前置补齐（Windows 坑）
+
+- **pnpm 版本锁**：项目 `packageManager` 字段锁 `pnpm@10.33.0`，corepack 默认拉的高版本不会自动降级，直接 `pnpm install` 会因版本不符报错。先固定版本：
+  ```bash
+  corepack prepare pnpm@10.33.0 --activate
+  ```
+- **make 不可用**：Windows Git Bash 不带 `make`，§3-§6 的 `make xxx` 全部用底层命令替代——后端用 `server/gradlew.bat`，前端用 `pnpm -C frontend ...`。
+- **gradlew.bat**：Windows 用 `server/gradlew.bat`（不是 `./gradlew`）；§8 那条 `chmod +x server/gradlew` 在 Windows 无意义，跳过。
+
+### 9.2 nginx 安装（本地解压，不改 PATH）
+
+仓库根：`/e/workspace/ai/road/c-notes`，目标使 `nginx.exe` 落在 `/e/workspace/ai/road/c-notes/.nginx/nginx.exe`。
+
+```bash
+# 1. 确认当前无 nginx
+nginx -v
+# -> command not found (EXIT 127)
+
+# 2. 下载 Windows stable zip
+curl -L -sS -o /tmp/nginx.zip -w "HTTP:%{http_code} SIZE:%{size_download}\n" https://nginx.org/download/nginx-1.27.5.zip
+# -> HTTP:200 SIZE:2110044
+# 备用：若 404，WebFetch https://nginx.org/en/download.html 找当前 stable zip 真实 URL
+
+# 3. 解压并拍平嵌套目录（zip 内含 nginx-1.27.5/ 一层）
+TARGET=/e/workspace/ai/road/c-notes/.nginx
+rm -rf "$TARGET"
+mkdir -p "$TARGET"
+unzip -q /tmp/nginx.zip -d "$TARGET"
+NESTED="$TARGET"/nginx-1.27.5
+if [ -d "$NESTED" ]; then
+  shopt -s dotglob
+  mv "$NESTED"/* "$TARGET"/
+  rmdir "$NESTED"
+fi
+# 结果：.nginx/ 下直接为 nginx.exe, conf/, html/, logs/, temp/, docs/, contrib/
+
+# 4. 验证
+/e/workspace/ai/road/c-notes/.nginx/nginx.exe -v
+# -> nginx version: nginx/1.27.5  (EXIT 0)
+```
+
+备注：
+- 未改系统 PATH；调用统一用绝对路径 `/e/workspace/ai/road/c-notes/.nginx/nginx.exe`。
+- `conf/nginx.conf` 在 `.nginx/conf/` 下，用于同源反代 8088 配置。
+- `logs/` 与 `temp/` 已由 zip 提供，nginx 可直接写。
+
+### 9.3 完整 e2e 步骤（Windows 等效命令，据 §6 改写）
+
+```bash
+# 0. 放密钥（§2）：根 .env 的 key_deepseek / key_embedding 已就位
+
+# 1. 锁 pnpm 版本
+corepack prepare pnpm@10.33.0 --activate
+
+# 2. 装前端依赖
+pnpm -C frontend install
+
+# 3. 构建 web dist
+pnpm --filter @cnotes/web build
+
+# 4. 起后端（先载入 .env，再 bootRun；终端 A 保持运行，等 vectorstore seed 完成）
+cd /e/workspace/ai/road/c-notes
+set -a; . ./.env; set +a
+server/gradlew.bat bootRun --args='--spring.profiles.active=dev --worker.scheduling.enabled=true'
+
+# 5. 起 nginx（另开终端 B）
+/e/workspace/ai/road/c-notes/.nginx/nginx.exe -p /e/workspace/ai/road/c-notes -c ops/nginx/cnotes.dev.conf
+
+# 6. 跑 e2e
+pnpm -C frontend/apps/web exec playwright test e2e/deep-chat.e2e.ts
+```
+
+### 9.4 本次实跑结果（2026-06-25，诚实记录）
+
+- `env_keys=true`、`backend_ready=true`、`seed_ready=true`（`server/.data/vectorstore.json`=30110 bytes；clusters 中 `hasSummary=true` 共 1 个簇）。
+- `nginx_ready=true`、`e2e_passed=true`，summary=`1 passed (19.0s)`。
+- 测试「深聊：浏览器穿过 nginx→后端→向量库→DeepSeek，回复带 📄/🕸 来源」通过（单测 12.6s）；📄/🕸 来源断言均通过；`exit_code=0`。
+- 唯一故障：nginx 首启失败（exit 1，缺 `logs/` 与 `.data/nginx/client_body_temp` 目录）；已创建 `logs/` 及 `.data/nginx/{client_body,proxy,fastcgi,uwsgi,scgi}_temp` 后重启成功，8088 就绪。e2e 无失败。
+- **结论：Windows 实测通过。**
