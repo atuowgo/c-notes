@@ -1,28 +1,21 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import type { ArticleCard } from '@cnotes/types';
+import type { ArticleLink } from '@cnotes/types';
 import { api } from '../api';
 
-// 推荐文(§6.3)。MVP 先用"同标签近邻"粗排(客户端从收件箱算);
-// V3 知识网成型后改由簇 / 关联驱动,并补"更深入"一类。
-const props = defineProps<{ articleId: string; tags: string[] }>();
+// 推荐文(§6.3):后端 LinkService 算关联——相关(共享标签)+ 更深入(同 auto_cluster),
+// Ark embedding cosine 排序,top-N 入库;reason 由 DeepSeek 生成。复用 listArticleLinks,
+// 按 linkType 区分徽标样式:相关=绿,更深入=金(同语义簇,深一层)。tags 仅兼容 prop。
+const props = defineProps<{ articleId: string; tags?: string[] }>();
 const emit = defineEmits<{ open: [id: string] }>();
 
-const related = ref<ArticleCard[]>([]);
+const related = ref<ArticleLink[]>([]);
 
 async function load() {
   related.value = [];
-  if (!props.tags.length) return;
+  if (!props.articleId) return;
   try {
-    const all = await api.listInbox();
-    related.value = all
-      .filter(
-        (a) =>
-          a.id !== props.articleId &&
-          a.status === 'done' &&
-          (a.tags ?? []).some((t) => props.tags.includes(t)),
-      )
-      .slice(0, 4);
+    related.value = await api.listArticleLinks(props.articleId);
   } catch {
     /* 忽略推荐失败,不影响阅读 */
   }
@@ -34,12 +27,25 @@ watch(() => props.articleId, load, { immediate: true });
 <template>
   <div v-if="related.length" class="recommend">
     <h4>⚗ 顺着这篇继续探索</h4>
-    <div v-for="a in related" :key="a.id" class="rec-item" @click="emit('open', a.id)">
-      <span class="rec-kind">相关</span>
+    <div
+      v-for="r in related"
+      :key="r.targetArticle.id"
+      class="rec-item"
+      @click="emit('open', r.targetArticle.id)"
+    >
+      <span class="rec-kind" :class="{ 'rec-kind--deeper': r.linkType === '更深入' }">{{ r.linkType }}</span>
       <div class="rec-body">
-        <p class="t">{{ a.title || '(未命名)' }}</p>
-        <p class="r">{{ a.summary || '同主题文章' }}</p>
+        <p class="t">{{ r.targetArticle.title || '(未命名)' }}</p>
+        <p class="r">{{ r.reason || r.targetArticle.summary || '同主题文章' }}</p>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+/* 更深入(同语义簇,深一层)徽标:琥珀金,区别于"相关"的绿。 */
+.rec-kind--deeper {
+  color: var(--gold);
+  background: var(--gold-soft);
+}
+</style>
