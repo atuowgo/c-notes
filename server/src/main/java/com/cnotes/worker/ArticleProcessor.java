@@ -1,7 +1,7 @@
 package com.cnotes.worker;
 
+import com.cnotes.article.ArticleService;
 import com.cnotes.article.entity.Article;
-import com.cnotes.article.mapper.ArticleMapper;
 import com.cnotes.extract.ContentFetcher;
 import com.cnotes.organize.ArticleOrganizer;
 import com.cnotes.organize.OrganizeResult;
@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class ArticleProcessor {
 
-    private final ArticleMapper articleMapper;
+    private final ArticleService articleService;
     private final ArticleOrganizer organizer;
     private final TagClassifier tagClassifier;
     private final ContentFetcher contentFetcher;
@@ -25,6 +25,7 @@ public class ArticleProcessor {
     @Transactional
     public void process(Article a) {
         try {
+            articleService.hydrateContent(a);   // 已落盘正文先读回,供 ensureContent/organize
             ensureContent(a);   // 裸 URL(如微信)正文为空时,服务端抓取兜底
             OrganizeResult r = organizer.organize(a.getTitle(), a.getContent(), tagClassifier.allowedTagNames());
             a.setSummary(r.summary());
@@ -33,7 +34,7 @@ public class ArticleProcessor {
             a.setStatus("done");
             a.setProcessedAt(LocalDateTime.now());
             a.setLastError(null);
-            articleMapper.updateById(a);
+            articleService.update(a);   // 落盘决策(幂等)+ updateById
         } catch (Exception e) {
             throw new RuntimeException("organize failed", e);  // 退避在 Worker 层(Task 7)
         }

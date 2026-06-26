@@ -2,6 +2,7 @@ package com.cnotes.article;
 
 import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
+import com.cnotes.storage.StorageService;
 import com.cnotes.tag.entity.ArticleTag;
 import com.cnotes.tag.entity.Tag;
 import com.cnotes.tag.mapper.ArticleTagMapper;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,12 +21,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@TestPropertySource(properties = {
+    "storage.root-dir=${java.io.tmpdir}/cnotes-article-api-test",
+    "storage.threshold-chars=100"
+})
 class ArticleApiTest {
 
     @Autowired MockMvc mvc;
     @Autowired ArticleMapper articleMapper;
     @Autowired TagMapper tagMapper;
     @Autowired ArticleTagMapper articleTagMapper;
+    @Autowired ArticleService articleService;
+    @Autowired StorageService storageService;
 
     private String seed() {
         String h = java.util.UUID.randomUUID().toString().replace("-", "");
@@ -175,5 +183,29 @@ class ArticleApiTest {
         mvc.perform(get("/api/articles"))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$[?(@.id == '" + a.getId() + "')].tags[0]", hasItem(t.getName())));
+    }
+
+    /**
+     * A2 长正文落盘:超阈值正文写文件、content 列置空、记 content_object_key;
+     * 取详情时按 key 透明读回。threshold 在本类 @TestPropertySource 内调到 100,便于用短串触发。
+     */
+    @Test
+    void longContentOffloadedToStorageAndReadBack() throws Exception {
+        String longContent = "长正文段落,用于触发落盘。".repeat(200);   // 2600 字 > 100 阈值
+        String h = java.util.UUID.randomUUID().toString().replace("-", "");
+        Article a = new Article();
+        a.setUrl("https://e.com/long/" + h); a.setUrlHash(h);
+        a.setTitle("长正文文章"); a.setStatus("done");
+        a.setContent(longContent);
+        articleService.save(a);
+
+        Article row = articleMapper.selectById(a.getId());
+        org.assertj.core.api.Assertions.assertThat(row.getContent()).isNull();      // 不回写 content 列
+        org.assertj.core.api.Assertions.assertThat(row.getContentObjectKey()).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(storageService.exists(row.getContentObjectKey())).isTrue();
+
+        mvc.perform(get("/api/articles/" + a.getId()))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.content", is(longContent)));   // 透明读回
     }
 }
