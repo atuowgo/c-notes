@@ -6,10 +6,13 @@ import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
 import com.cnotes.cluster.dto.ClusterCardDto;
 import com.cnotes.cluster.dto.ClusterDetailDto;
+import com.cnotes.cluster.entity.ClusterPreference;
+import com.cnotes.cluster.mapper.ClusterPreferenceMapper;
 import com.cnotes.tag.entity.ArticleTag;
 import com.cnotes.tag.entity.Tag;
 import com.cnotes.tag.mapper.ArticleTagMapper;
 import com.cnotes.tag.mapper.TagMapper;
+import com.cnotes.user.CurrentUserResolver;
 import lombok.RequiredArgsConstructor;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -37,6 +40,8 @@ public class ClusterService {
     private final ClusterSummarizer summarizer;
     private final com.cnotes.chat.vector.ClusterIndexer clusterIndexer;
     private final ObjectMapper om;
+    private final ClusterPreferenceMapper clusterPreferenceMapper;
+    private final CurrentUserResolver currentUser;
 
     /** 少于此成员数不生成综述(单篇不构成"簇")。 */
     @Value("${cluster.min-members:2}")
@@ -93,6 +98,87 @@ public class ClusterService {
         if (summarized) {
             clusterIndexer.index(tagId);
         }
+    }
+
+    /**
+     * 合并簇:把 source 标签下所有文章 retag 到 target 标签,再删 source 标签/簇。
+     * 综述随成员变化由后台 worker 重写,此处只动 article_tag。
+     */
+    @Transactional
+    public ClusterDetailDto merge(String sourceId, String targetId) {
+        if (sourceId == null || targetId == null) throw new IllegalArgumentException("源簇/目标簇 id 必填");
+        if (sourceId.equals(targetId)) throw new IllegalArgumentException("源簇与目标簇不能相同");
+        if (tagMapper.selectById(sourceId) == null) throw new IllegalArgumentException("源簇不存在");
+        if (tagMapper.selectById(targetId) == null) throw new IllegalArgumentException("目标簇不存在");
+        List<ArticleTag> links = articleTagMapper.selectList(
+            Wrappers.<ArticleTag>lambdaQuery().eq(ArticleTag::getTagId, sourceId));
+        for (ArticleTag l : links) retag(l.getArticleId(), sourceId, targetId);
+        tagMapper.deleteById(sourceId);
+        recordPreference("merge", sourceId, targetId);
+        return detail(targetId);
+    }
+
+    /**
+     * 拆分簇:建新标签,把指定文章从源簇 retag 到新簇。新簇名冲突 → IllegalArgumentException(400)。
+     */
+    @Transactional
+    public ClusterDetailDto split(String clusterId, List<String> articleIds, String newTagName) {
+        if (newTagName == null || newTagName.isBlank()) throw new IllegalArgumentException("新簇名必填");
+        if (articleIds == null || articleIds.isEmpty()) throw new IllegalArgumentException("待拆出文章必填");
+        if (tagMapper.selectById(clusterId) == null) throw new IllegalArgumentException("源簇不存在");
+        Long dup = tagMapper.selectCount(Wrappers.<Tag>lambdaQuery().eq(Tag::getName, newTagName));
+        if (dup != null && dup > 0) throw new IllegalArgumentException("簇名已存在:" + newTagName);
+        Tag nt = new Tag();
+        nt.setName(newTagName);
+        tagMapper.insert(nt);
+        for (String aid : articleIds) retag(aid, clusterId, nt.getId());
+        recordPreference("split", clusterId, nt.getId());
+        return detail(nt.getId());
+    }
+
+    /**
+     * 单篇跨簇移动:把 articleId 从源簇 retag 到目标簇。源/目标簇不存在 → IllegalArgumentException。
+     */
+    @Transactional
+    public ClusterDetailDto move(String clusterId, String articleId, String targetTagId) {
+        if (articleId == null || targetTagId == null) throw new IllegalArgumentException("articleId/targetTagId 必填");
+        if (tagMapper.selectById(clusterId) == null) throw new IllegalArgumentException("源簇不存在");
+        if (tagMapper.selectById(targetTagId) == null) throw new IllegalArgumentException("目标簇不存在");
+        if (clusterId.equals(targetTagId)) throw new IllegalArgumentException("源簇与目标簇不能相同");
+        retag(articleId, clusterId, targetTagId);
+        recordPreference("move", clusterId, targetTagId);
+        return detail(clusterId);
+    }
+
+    /**
+     * retag 一篇文章从 sourceTag 到 targetTag,规避 article_tag 的 uk_article_tag(article_id, tag_id) 唯一键:
+     * 已在目标簇 → 仅删源链接(不重复插入);否则把源链接的 tag_id 改挂目标簇(保留 confidence/create_time)。
+     */
+    private void retag(String articleId, String sourceTagId, String targetTagId) {
+        boolean hasTarget = !articleTagMapper.selectList(
+            Wrappers.<ArticleTag>lambdaQuery()
+                .eq(ArticleTag::getArticleId, articleId)
+                .eq(ArticleTag::getTagId, targetTagId)).isEmpty();
+        if (hasTarget) {
+            articleTagMapper.delete(Wrappers.<ArticleTag>lambdaQuery()
+                .eq(ArticleTag::getArticleId, articleId)
+                .eq(ArticleTag::getTagId, sourceTagId));
+        } else {
+            articleTagMapper.update(null, Wrappers.<ArticleTag>lambdaUpdate()
+                .set(ArticleTag::getTagId, targetTagId)
+                .eq(ArticleTag::getArticleId, articleId)
+                .eq(ArticleTag::getTagId, sourceTagId));
+        }
+    }
+
+    /** 记一条纠偏审计(owner_id 取当前用户;测试 permitAll 下为 null)。 */
+    private void recordPreference(String action, String sourceId, String targetId) {
+        ClusterPreference p = new ClusterPreference();
+        p.setOwnerId(currentUser.currentUserId());
+        p.setAction(action);
+        p.setSourceId(sourceId);
+        p.setTargetId(targetId);
+        clusterPreferenceMapper.insert(p);
     }
 
     /** 找出需要(重)写综述的簇:成员数 >= 下限,且综述缺失或成员数已变化。 */
