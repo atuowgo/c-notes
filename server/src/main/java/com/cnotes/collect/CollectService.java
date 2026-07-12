@@ -6,6 +6,7 @@ import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
 import com.cnotes.collect.dto.CollectRequest;
 import com.cnotes.common.Hashing;
+import com.cnotes.extract.HtmlSanitizer;
 import com.cnotes.user.CurrentUserResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
@@ -19,6 +20,7 @@ public class CollectService {
     private final ArticleMapper articleMapper;
     private final ArticleService articleService;
     private final CurrentUserResolver currentUser;
+    private final HtmlSanitizer sanitizer;
 
     @Transactional
     public String collect(CollectRequest req) {
@@ -33,6 +35,11 @@ public class CollectService {
         a.setTitle(req.getTitle());
         a.setAuthor(req.getAuthor());
         a.setContent(req.getContent());
+        // 净化后仅设到瞬态字段;真正落盘(→ htmlObjectKey)在 ArticleService.offloadHtml(Task 5)。
+        // 外层非空判断保留 null 语义(不写成 ""),供 Task 5 落盘决策区分"无 HTML"。
+        if (req.getContentHtml() != null && !req.getContentHtml().isBlank()) {
+            a.setContentHtml(sanitizer.sanitize(req.getContentHtml(), req.getUrl()));
+        }
         a.setSourceType(req.getSourceType() == null ? "browser" : req.getSourceType());
         a.setExtractMethod(req.getContent() != null ? "readability" : null);
         a.setStatus("pending");
