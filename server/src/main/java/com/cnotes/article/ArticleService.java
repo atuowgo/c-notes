@@ -11,6 +11,8 @@ import java.util.UUID;
 /**
  * 文章持久化网关(A2):超阈值正文落盘到 StorageService,content 列置空、记 content_object_key;
  * 取详情时按 key 从存储读回 content,对调用方透明。短正文照旧存 content 列。
+ * 另:正文 HTML(contentHtml)一律落盘到 StorageService(记 html_object_key),不设阈值——
+ * 它是纯渲染产物、体量与 content 无必然关系,统一落盘更简单;取详情按 key 读回。
  */
 @Service
 public class ArticleService {
@@ -50,15 +52,37 @@ public class ArticleService {
         if (c != null) a.setContent(c);
     }
 
+    /** HTML 落盘(幂等):已落盘(html_object_key 非空)仅清瞬态;否则落盘并记 key。HTML 一律落盘不看阈值。 */
+    public void offloadHtml(Article a) {
+        if (a.getHtmlObjectKey() != null) { a.setContentHtml(null); return; }
+        String h = a.getContentHtml();
+        if (h == null || h.isBlank()) return;
+        String key = UUID.randomUUID().toString().replace("-", "");
+        storageService.put(key, h);
+        a.setHtmlObjectKey(key);
+        a.setContentHtml(null);
+    }
+
+    /** 取详情:有 html_object_key 则从存储读回 HTML 填瞬态字段。 */
+    public void hydrateHtml(Article a) {
+        if (a == null || a.getHtmlObjectKey() == null) return;
+        String h = storageService.get(a.getHtmlObjectKey());
+        if (h != null) a.setContentHtml(h);
+    }
+
     /** 新增:先落盘决策再 insert。 */
+    // 注:offloadContent/offloadHtml 的 put 是本地文件写,不在 DB 事务内;若后一步 put 或 DB 写失败,
+    // 前面已落盘的 blob 会成孤儿(A2 起既有的已知限制,靠运维侧清理)。
     public void save(Article a) {
         offloadContent(a);
+        offloadHtml(a);
         articleMapper.insert(a);
     }
 
     /** 更新:先落盘决策(幂等)再 updateById。 */
     public void update(Article a) {
         offloadContent(a);
+        offloadHtml(a);
         articleMapper.updateById(a);
     }
 }

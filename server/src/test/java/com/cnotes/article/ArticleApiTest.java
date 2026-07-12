@@ -208,4 +208,25 @@ class ArticleApiTest {
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.content", is(longContent)));   // 透明读回
     }
+
+    /**
+     * 正文 HTML 落盘:HTML 一律落盘(不看阈值),content_html 瞬态置空、记 html_object_key;
+     * hydrateHtml 按 key 透明读回。此处到 service 层即止(HTTP 层由 Task 6 覆盖)。
+     */
+    @Test
+    void htmlOffloadedToStorageAndReadBack() throws Exception {
+        String h = java.util.UUID.randomUUID().toString().replace("-", "");
+        Article a = new Article();
+        a.setUrl("https://e.com/html/" + h); a.setUrlHash(h);
+        a.setTitle("HTML 文章"); a.setStatus("done");
+        a.setContentHtml("<p>集成落盘HTML</p>");
+        articleService.save(a);
+
+        Article row = articleMapper.selectById(a.getId());
+        org.assertj.core.api.Assertions.assertThat(row.getHtmlObjectKey()).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(storageService.exists(row.getHtmlObjectKey())).isTrue();
+
+        articleService.hydrateHtml(row);
+        org.assertj.core.api.Assertions.assertThat(row.getContentHtml()).isEqualTo("<p>集成落盘HTML</p>");
+    }
 }
