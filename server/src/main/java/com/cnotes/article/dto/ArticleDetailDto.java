@@ -9,5 +9,6 @@ import java.util.List;
 public class ArticleDetailDto extends ArticleCardDto {
     private String url;
     private String content;
+    private String contentHtml;   // 净化后正文 HTML(沉浸式渲染);无则为 null,前端降级
     private List<String> keyPoints;
 }

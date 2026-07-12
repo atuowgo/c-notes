@@ -17,6 +17,8 @@ import java.util.UUID;
 @Service
 public class ArticleService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ArticleService.class);
+
     private final ArticleMapper articleMapper;
     private final StorageService storageService;
     private final int thresholdChars;
@@ -63,11 +65,15 @@ public class ArticleService {
         a.setContentHtml(null);
     }
 
-    /** 取详情:有 html_object_key 则从存储读回 HTML 填瞬态字段。 */
+    /** 取详情:有 html_object_key 则从存储读回 HTML 填瞬态字段;读取失败仅降级(contentHtml 保持 null),不拖垮详情接口。 */
     public void hydrateHtml(Article a) {
         if (a == null || a.getHtmlObjectKey() == null) return;
-        String h = storageService.get(a.getHtmlObjectKey());
-        if (h != null) a.setContentHtml(h);
+        try {
+            String h = storageService.get(a.getHtmlObjectKey());
+            if (h != null) a.setContentHtml(h);
+        } catch (Exception e) {
+            log.warn("正文 HTML 读回失败,降级为无 HTML; key={}", a.getHtmlObjectKey(), e);
+        }
     }
 
     /** 新增:先落盘决策再 insert。 */

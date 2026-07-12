@@ -211,7 +211,7 @@ class ArticleApiTest {
 
     /**
      * 正文 HTML 落盘:HTML 一律落盘(不看阈值),content_html 瞬态置空、记 html_object_key;
-     * hydrateHtml 按 key 透明读回。此处到 service 层即止(HTTP 层由 Task 6 覆盖)。
+     * hydrateHtml 按 key 透明读回,detail 接口(HTTP 层)一并透传 contentHtml(Task 6)。
      */
     @Test
     void htmlOffloadedToStorageAndReadBack() throws Exception {
@@ -228,5 +228,28 @@ class ArticleApiTest {
 
         articleService.hydrateHtml(row);
         org.assertj.core.api.Assertions.assertThat(row.getContentHtml()).isEqualTo("<p>集成落盘HTML</p>");
+
+        mvc.perform(get("/api/articles/" + a.getId()))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.contentHtml", is("<p>集成落盘HTML</p>")));
+    }
+
+    /**
+     * 降级路径:文章无 html_object_key(只有普通 content、没存 HTML),
+     * detail 的 contentHtml 应为 null(Jackson 默认不序列化 null 字段,故字段缺席)。
+     */
+    @Test
+    void detailWithoutHtmlReturnsNullContentHtml() throws Exception {
+        String h = java.util.UUID.randomUUID().toString().replace("-", "");
+        Article a = new Article();
+        a.setUrl("https://e.com/nohtml/" + h); a.setUrlHash(h);
+        a.setTitle("无 HTML 文章"); a.setStatus("done");
+        a.setContent("纯文本正文");
+        articleService.save(a);
+
+        mvc.perform(get("/api/articles/" + a.getId()))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.content", is("纯文本正文")))
+           .andExpect(jsonPath("$.contentHtml").doesNotExist());
     }
 }

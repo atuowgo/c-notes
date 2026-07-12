@@ -56,9 +56,11 @@ public class ArticleQueryService {
         // 非所有者视为不存在(404),避免泄露他人数据
         if (!Objects.equals(a.getOwnerId(), currentUser.currentUserId())) return null;
         articleService.hydrateContent(a);   // 长正文落盘者:从存储读回 content,对调用方透明
+        articleService.hydrateHtml(a);      // 正文 HTML 落盘者:从存储读回 contentHtml
         ArticleDetailDto d = new ArticleDetailDto();
         d.setId(a.getId()); d.setTitle(a.getTitle()); d.setAuthor(a.getAuthor());
-        d.setSummary(a.getSummary()); d.setContent(a.getContent()); d.setStatus(a.getStatus());
+        d.setSummary(a.getSummary()); d.setContent(a.getContent()); d.setContentHtml(a.getContentHtml());
+        d.setStatus(a.getStatus());
         d.setSourceType(a.getSourceType()); d.setUrl(a.getUrl());
         d.setKeyPoints(parsePoints(a.getKeyPoints()));
         d.setTags(tagsByArticle(List.of(a.getId())).getOrDefault(a.getId(), List.of()));
