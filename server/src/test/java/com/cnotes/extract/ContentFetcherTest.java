@@ -12,7 +12,8 @@ class ContentFetcherTest {
 
     // 无头默认不触发:提取类用例用一个永远返回空的 renderer。
     private final HeadlessRenderer noHeadless = mock(HeadlessRenderer.class);
-    private final ContentFetcher fetcher = new ContentFetcher(noHeadless, 200);
+    private final HtmlSanitizer sanitizer = new HtmlSanitizer();
+    private final ContentFetcher fetcher = new ContentFetcher(noHeadless, 200, sanitizer);
 
     @Test
     void extractsWeChatArticleBodyAndTitle() {
@@ -54,10 +55,10 @@ class ContentFetcherTest {
         String renderedHtml = "<html><body><article><p>" + richBody + "</p></article></body></html>";
         HeadlessRenderer renderer = mock(HeadlessRenderer.class);
         when(renderer.render(any())).thenReturn(Optional.of(renderedHtml));
-        ContentFetcher cf = new ContentFetcher(renderer, 200);
+        ContentFetcher cf = new ContentFetcher(renderer, 200, sanitizer);
 
         // HTTP 只拿到很薄的占位内容 → 触发无头兜底
-        ContentFetcher.Extracted thin = new ContentFetcher.Extracted("占位", "加载中…");
+        ContentFetcher.Extracted thin = new ContentFetcher.Extracted("占位", "加载中…", "");
         ContentFetcher.Extracted out = cf.resolve("https://spa.example.com/x", thin);
 
         assertThat(out.text()).contains("无头浏览器渲染后才出现");
@@ -67,13 +68,41 @@ class ContentFetcherTest {
     @Test
     void richHttpResultSkipsHeadless() {
         HeadlessRenderer renderer = mock(HeadlessRenderer.class);
-        ContentFetcher cf = new ContentFetcher(renderer, 200);
+        ContentFetcher cf = new ContentFetcher(renderer, 200, sanitizer);
         ContentFetcher.Extracted rich =
-            new ContentFetcher.Extracted("标题", "足够长的正文。".repeat(40));
+            new ContentFetcher.Extracted("标题", "足够长的正文。".repeat(40), "");
 
         ContentFetcher.Extracted out = cf.resolve("https://e.com/x", rich);
 
         assertThat(out).isSameAs(rich);
         verifyNoInteractions(renderer);   // 够厚不触发渲染
+    }
+
+    @Test
+    void unwrapsWechatCaptchaTargetUrl() {
+        String captchaUrl = "https://mp.weixin.qq.com/mp/wappoc_appmsgcaptcha?poc_token=abc"
+            + "&target_url=https%3A%2F%2Fmp.weixin.qq.com%2Fs%2FbsSBfvWyLUEdFHFZmFOckQ%3Fmpshare%3D1";
+
+        String real = ContentFetcher.unwrapWechatCaptcha(captchaUrl);
+
+        assertThat(real).isEqualTo("https://mp.weixin.qq.com/s/bsSBfvWyLUEdFHFZmFOckQ?mpshare=1");
+    }
+
+    @Test
+    void nonCaptchaUrlPassesThroughUnchanged() {
+        assertThat(ContentFetcher.unwrapWechatCaptcha("https://mp.weixin.qq.com/s/abc")).isEqualTo("https://mp.weixin.qq.com/s/abc");
+        assertThat(ContentFetcher.unwrapWechatCaptcha("https://zhuanlan.zhihu.com/p/622517860"))
+            .isEqualTo("https://zhuanlan.zhihu.com/p/622517860");
+    }
+
+    @Test
+    void extractHtmlPreservesStructureAndImg() {
+        String html = "<html><body><div id=\"js_content\">"
+            + "<h2>小标题</h2><p>正文段落,足够长以通过阈值判断的占位文本内容。</p>"
+            + "<img data-src=\"https://mmbiz.qpic.cn/x.png\">"
+            + "</div></body></html>";
+        ContentFetcher.Extracted ex = fetcher.extractHtml("https://mp.weixin.qq.com/s/a", html);
+        assertThat(ex.html()).contains("<h2").contains("<img").contains("x.png").doesNotContain("data-src");
+        assertThat(ex.text()).contains("正文段落");
     }
 }

@@ -44,8 +44,9 @@ class ArticleProcessorTest {
 
     @Test
     void blankContentTriggersServerFetchThenOrganizes() {
+        String fetched = "服务端抓到的正文内容".repeat(20);   // 需 >= min-content-length(200),否则视为抓取过薄
         when(contentFetcher.fetch(any()))
-            .thenReturn(new ContentFetcher.Extracted("抓到的标题", "服务端抓到的正文内容"));
+            .thenReturn(new ContentFetcher.Extracted("抓到的标题", fetched, "<p>" + fetched + "</p>"));
         when(organizer.organize(any(), any(), any()))
             .thenReturn(new OrganizeResult("摘要", List.of("要点1"), List.of()));
 
@@ -59,7 +60,7 @@ class ArticleProcessorTest {
 
         Article got = articleMapper.selectById(a.getId());
         assertThat(got.getStatus()).isEqualTo("done");
-        assertThat(got.getContent()).isEqualTo("服务端抓到的正文内容");
+        assertThat(got.getContent()).isEqualTo(fetched);
         assertThat(got.getExtractMethod()).isEqualTo("server-fetch");
         assertThat(got.getTitle()).isEqualTo("抓到的标题");   // 标题回填
     }

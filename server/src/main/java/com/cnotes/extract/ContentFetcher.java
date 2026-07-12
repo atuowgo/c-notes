@@ -1,14 +1,20 @@
 package com.cnotes.extract;
 
+import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 服务端正文抓取(三级抓取的服务器侧:处理裸 URL、微信公众号文章)。
@@ -20,7 +26,7 @@ import java.util.Optional;
 @Service
 public class ContentFetcher {
 
-    public record Extracted(String title, String text) {}
+    public record Extracted(String title, String text, String html) {}
 
     private static final int TIMEOUT_MS = 10_000;
     private static final int MAX_BODY = 5 * 1024 * 1024;
@@ -30,16 +36,46 @@ public class ContentFetcher {
 
     private final HeadlessRenderer headlessRenderer;
     private final int minContentLength;
+    private final HtmlSanitizer sanitizer;
 
     public ContentFetcher(HeadlessRenderer headlessRenderer,
-                          @Value("${extract.min-content-length:200}") int minContentLength) {
+                          @Value("${extract.min-content-length:200}") int minContentLength,
+                          HtmlSanitizer sanitizer) {
         this.headlessRenderer = headlessRenderer;
         this.minContentLength = minContentLength;
+        this.sanitizer = sanitizer;
     }
 
-    /** 抓取并提取;失败(网络/超时/解析)返回 null,由上层决定重试。 */
-    public Extracted fetch(String url) {
-        return resolve(url, httpFetch(url));
+    // 站点明确拒绝(非网络抖动),重试无意义:401 未授权、403 反爬拒绝、404 页面不存在、451 依法下线。
+    private static final Set<Integer> BLOCKING_STATUS = Set.of(401, 403, 404, 451);
+
+    // 微信"环境异常/滑块验证"跳转页(如 /mp/wappoc_appmsgcaptcha):抓到的是验证页壳,不是文章正文;
+    // 真实文章 URL 编码放在 target_url 参数里,直接解出来抓才对——验证页本身无法用无头浏览器绕过。
+    private static final Pattern WECHAT_CAPTCHA_TARGET =
+        Pattern.compile("^https?://mp\\.weixin\\.qq\\.com/mp/[^?]*captcha[^?]*\\?.*[?&]target_url=([^&]+)",
+            Pattern.CASE_INSENSITIVE);
+
+    static String unwrapWechatCaptcha(String url) {
+        if (url == null) return null;
+        Matcher m = WECHAT_CAPTCHA_TARGET.matcher(url);
+        if (!m.find()) return url;
+        return URLDecoder.decode(m.group(1), StandardCharsets.UTF_8);
+    }
+
+    /**
+     * 抓取并提取。网络抖动/解析失败等瞬时问题返回 null,由上层重试;
+     * 站点明确拒绝(见 {@link #BLOCKING_STATUS})且无头兜底也拿不到内容时抛 {@link ContentFetchBlockedException},
+     * 上层应据此放弃重试,而不是当瞬时失败退避。
+     */
+    public Extracted fetch(String rawUrl) {
+        String url = unwrapWechatCaptcha(rawUrl);
+        Integer[] blockedStatus = new Integer[1];
+        Extracted httpResult = httpFetch(url, blockedStatus);
+        Extracted result = resolve(url, httpResult);
+        if (textLen(result) < minContentLength && blockedStatus[0] != null) {
+            throw new ContentFetchBlockedException(url, blockedStatus[0]);
+        }
+        return result;
     }
 
     /**
@@ -60,7 +96,8 @@ public class ContentFetcher {
         return e == null || e.text() == null ? 0 : e.text().length();
     }
 
-    private Extracted httpFetch(String url) {
+    /** blockedStatus[0] 回填站点明确拒绝时的 HTTP 状态码(其余失败场景保持 null,视为瞬时问题)。 */
+    private Extracted httpFetch(String url, Integer[] blockedStatus) {
         try {
             Document doc = Jsoup.connect(url)
                 .userAgent(UA)
@@ -69,6 +106,9 @@ public class ContentFetcher {
                 .followRedirects(true)
                 .get();
             return extract(doc);
+        } catch (HttpStatusException e) {
+            if (BLOCKING_STATUS.contains(e.getStatusCode())) blockedStatus[0] = e.getStatusCode();
+            return null;
         } catch (Exception e) {
             return null;
         }
@@ -84,7 +124,8 @@ public class ContentFetcher {
         doc.select("script, style, noscript, nav, aside, form, [role=navigation], #mw-navigation, .mw-jump-link").remove();
         Element root = pickContentRoot(doc);
         String text = blocksToText(root);
-        return new Extracted(title, text);
+        String html = root == null ? "" : sanitizer.sanitize(root.html(), doc.baseUri());
+        return new Extracted(title, text, html);
     }
 
     private String pickTitle(Document doc) {
