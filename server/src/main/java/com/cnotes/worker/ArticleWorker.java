@@ -3,6 +3,7 @@ package com.cnotes.worker;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.cnotes.article.entity.Article;
 import com.cnotes.article.mapper.ArticleMapper;
+import com.cnotes.extract.ContentFetchBlockedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -58,11 +59,13 @@ public class ArticleWorker {
             upd.setRetryCount(next);
             upd.setStatus("failed");
             upd.setLastError(msg.substring(0, Math.min(1000, msg.length())));
-            if (next < maxRetry) {
+            // 站点明确拒绝(非瞬时网络问题)重试没有意义,不用等到达上限才停;其余按指数退避正常重试。
+            boolean permanent = root instanceof ContentFetchBlockedException;
+            if (!permanent && next < maxRetry) {
                 long delay = (long) (backoffBase * Math.pow(2, next - 1)); // 指数退避
                 upd.setNextRetryTime(LocalDateTime.now().plusSeconds(delay));
             } else {
-                upd.setNextRetryTime(null);   // 达上限,不再重试
+                upd.setNextRetryTime(null);   // 达上限或永久失败,不再重试
             }
             articleMapper.updateById(upd);
         }
