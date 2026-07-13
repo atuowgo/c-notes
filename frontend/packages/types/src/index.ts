@@ -41,6 +41,8 @@ export interface ArticleDetail extends ArticleCard {
   /** 原文链接(用于"看原文") */
   url?: string;
   content?: string;
+  /** 净化后正文 HTML(沉浸式渲染);无则降级 */
+  contentHtml?: string | null;
   keyPoints: string[];
 }
 
@@ -51,8 +53,8 @@ export interface CollectRequest {
   author?: string | null;
   /** 端内本地提取的正文(插件 Readability) */
   content?: string | null;
-  /** 渲染后 DOM 快照,正文提取不佳时的服务端兜底 */
-  domSnapshot?: string | null;
+  /** 插件 Readability 干净 HTML(供沉浸式渲染) */
+  contentHtml?: string | null;
   sourceType?: SourceType;
 }
 
