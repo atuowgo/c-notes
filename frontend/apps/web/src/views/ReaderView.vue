@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
+import DOMPurify from 'dompurify';
 import type { ArticleDetail } from '@cnotes/types';
 import { api } from '../api';
 import { srcLabel } from '../format';
@@ -48,6 +49,12 @@ const segments = computed<Segment[]>(() => {
 });
 
 const noteCount = computed(() => (article.value ? notesForArticle(article.value.id).length : 0));
+
+// 富 HTML 正文(Task 6 服务端已净化,这里 DOMPurify 二次净化防 XSS)。
+const safeHtml = computed(() =>
+  article.value?.contentHtml ? DOMPurify.sanitize(article.value.contentHtml) : '',
+);
+const hasHtml = computed(() => !!safeHtml.value);
 
 async function load(id: string) {
   article.value = null;
@@ -155,12 +162,18 @@ function cancelNote() {
 
       <DistillCard :article="article" />
 
-      <div ref="bodyEl" class="r-body" @mouseup="onMouseUp">
+      <!-- 富 HTML 主路径;划线捕获+高亮由 Task 11 用渲染后 DOM 坐标系统一实现,此前不接 @mouseup 以免 anchor 与 article.content 坐标错位写入脏 note -->
+      <div v-if="hasHtml" ref="bodyEl" class="r-body reader-content" v-html="safeHtml"></div>
+      <!-- 纯文本降级(保留 segments 渲染 + 提示) -->
+      <div v-else-if="article?.content" ref="bodyEl" class="r-body reader-plain" @mouseup="onMouseUp">
+        <p class="degrade-tip">未能提取版式,以下为纯文本;<a :href="article.url" target="_blank" rel="noopener">看原文 ↗</a></p>
         <template v-for="(seg, i) in segments" :key="i">
           <mark v-if="seg.noteId" class="hl" @click="emit('openIdeas')">{{ seg.text }}</mark>
           <template v-else>{{ seg.text }}</template>
         </template>
       </div>
+      <!-- 仅元信息降级 -->
+      <div v-else class="r-body"><p>暂无可读正文,<a :href="article?.url" target="_blank" rel="noopener">看原文 ↗</a></p></div>
 
       <RecommendList :article-id="article.id" :tags="article.tags ?? []" @open="emit('open', $event)" />
     </template>
