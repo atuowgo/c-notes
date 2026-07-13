@@ -98,8 +98,7 @@ function onMouseUp() {
   const b = offsetTo(range.endContainer, range.endOffset);
   const start = Math.min(a, b);
   const end = Math.max(a, b);
-  const content = article.value?.content ?? '';
-  pending = { start, end, quote: content.slice(start, end), rect: range.getBoundingClientRect() };
+  pending = { start, end, quote: range.toString(), rect: range.getBoundingClientRect() };
   tip.value = { left: pending.rect.left + pending.rect.width / 2, top: pending.rect.top };
 }
 
@@ -137,6 +136,71 @@ function cancelNote() {
   compose.value = null;
   pending = null;
 }
+
+// 富 HTML 高亮 click 事件委托:落在 mark.hl 内即打开想法列表(替代每个 mark 逐一绑定)。
+function onBodyClick(e: MouseEvent) {
+  if ((e.target as HTMLElement).closest?.('mark.hl')) emit('openIdeas');
+}
+
+/* ---------- 富 HTML 上色(纯文本模式靠 segments 的 <mark>,这里只处理 v-html 场景) ---------- */
+
+// 已知限制:富 HTML 锚点基于渲染后 DOM 文本坐标,与纯文本降级模式(基于 article.content)坐标系不同。
+// 同一篇文章模式固定故自洽;但若某篇 contentHtml 被重新抓取/净化改变,旧锚点可能错位甚至越界,导致该高亮静默消失。
+// 遍历 bodyEl 文本节点,把落在各 note [start,end) 区间的文本包 <mark>。
+// 升序 + cursor 跳过、start 小者胜,与纯文本 segments 同语义(插入 mark 不改变文本总长度,升序不会导致偏移漂移)。
+function paintHighlights() {
+  const body = bodyEl.value;
+  const art = article.value;
+  if (!body || !art || !hasHtml.value) return;
+  // 先解包旧 mark(避免重复上色)
+  body.querySelectorAll('mark.hl').forEach((m) => {
+    const parent = m.parentNode as Node;
+    while (m.firstChild) parent.insertBefore(m.firstChild, m);
+    parent.removeChild(m);
+  });
+  body.normalize();
+  const ns = notesForArticle(art.id)
+    .filter((n) => n.anchor && n.anchor.start < n.anchor.end)
+    .sort((a, b) => a.anchor!.start - b.anchor!.start); // 升序,与纯文本 segments 同序
+  let cursor = 0;
+  for (const n of ns) {
+    if (n.anchor!.start < cursor) continue;         // 重叠:start 小者(更靠前)胜,与 segments 一致
+    if (wrapRange(body, n.anchor!.start, n.anchor!.end, n.id)) cursor = n.anchor!.end;
+  }
+}
+
+// 用全局文本偏移([start,end) 基于 body 内文本节点拼接)定位并包裹 <mark>;成功上色返回 true,跨块/失败返回 false。
+function wrapRange(body: HTMLElement, start: number, end: number, noteId: string): boolean {
+  const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+  let pos = 0;
+  let sNode: Text | null = null, sOff = 0, eNode: Text | null = null, eOff = 0;
+  let t = walker.nextNode() as Text | null;
+  while (t) {
+    const len = t.data.length;
+    if (!sNode && start < pos + len) { sNode = t; sOff = start - pos; }
+    if (!eNode && end <= pos + len) { eNode = t; eOff = end - pos; break; }
+    pos += len;
+    t = walker.nextNode() as Text | null;
+  }
+  if (!sNode || !eNode) return false;
+  try {
+    const range = document.createRange();
+    range.setStart(sNode, sOff);
+    range.setEnd(eNode, eOff);
+    const mark = document.createElement('mark');
+    mark.className = 'hl';
+    mark.dataset.noteId = noteId;   // 供事件委托识别
+    range.surroundContents(mark);   // 跨块边界会抛,视为未上色
+    return true;
+  } catch { return false; }
+}
+
+// 依赖只看笔记数量;现有改笔记的操作(updateNoteThought)不动 anchor,故数量不变即无需重绘。
+// 若将来支持"编辑划线范围",需把此依赖改为对 anchor 敏感(如序列化 hash),否则会漏重绘。
+watch(
+  [safeHtml, () => (article.value ? notesForArticle(article.value.id).length : 0)],
+  () => nextTick(paintHighlights),
+);
 </script>
 
 <template>
@@ -162,16 +226,18 @@ function cancelNote() {
 
       <DistillCard :article="article" />
 
-      <!-- 富 HTML 主路径;划线捕获+高亮由 Task 11 用渲染后 DOM 坐标系统一实现,此前不接 @mouseup 以免 anchor 与 article.content 坐标错位写入脏 note -->
-      <div v-if="hasHtml" ref="bodyEl" class="r-body reader-content" v-html="safeHtml"></div>
-      <!-- 纯文本降级(保留 segments 渲染 + 提示) -->
-      <div v-else-if="article?.content" ref="bodyEl" class="r-body reader-plain" @mouseup="onMouseUp">
+      <!-- 富 HTML 主路径;划线捕获(@mouseup)+ 高亮(paintHighlights)均用渲染后 bodyEl 的 DOM 文本坐标,与 article.content 无关 -->
+      <div v-if="hasHtml" ref="bodyEl" class="r-body reader-content" v-html="safeHtml" @mouseup="onMouseUp" @click="onBodyClick"></div>
+      <!-- 纯文本降级(保留 segments 渲染 + 提示;tip 移到 bodyEl 外,避免污染 offsetTo 偏移) -->
+      <template v-else-if="article?.content">
         <p class="degrade-tip">未能提取版式,以下为纯文本;<a :href="article.url" target="_blank" rel="noopener">看原文 ↗</a></p>
-        <template v-for="(seg, i) in segments" :key="i">
-          <mark v-if="seg.noteId" class="hl" @click="emit('openIdeas')">{{ seg.text }}</mark>
-          <template v-else>{{ seg.text }}</template>
-        </template>
-      </div>
+        <div ref="bodyEl" class="r-body reader-plain" @mouseup="onMouseUp">
+          <template v-for="(seg, i) in segments" :key="i">
+            <mark v-if="seg.noteId" class="hl" @click="emit('openIdeas')">{{ seg.text }}</mark>
+            <template v-else>{{ seg.text }}</template>
+          </template>
+        </div>
+      </template>
       <!-- 仅元信息降级 -->
       <div v-else class="r-body"><p>暂无可读正文,<a :href="article?.url" target="_blank" rel="noopener">看原文 ↗</a></p></div>
 
