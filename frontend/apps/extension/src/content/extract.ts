@@ -3,7 +3,7 @@ import TurndownService from 'turndown';
 import type { CollectRequest } from '@cnotes/types';
 
 // 一级抓取(计划 §5.4):读浏览器里渲染后的 DOM,本地 Readability 提取正文,
-// 转 Markdown;同时附完整 DOM 快照供服务端兜底。
+// 转 Markdown;同时带出 Readability 干净 HTML 供沉浸式渲染。
 function extract(): CollectRequest {
   const docClone = document.cloneNode(true) as Document;
   const parsed = new Readability(docClone).parse();
@@ -16,7 +16,7 @@ function extract(): CollectRequest {
     title: parsed?.title || document.title || null,
     author: parsed?.byline || null,
     content: content || null,
-    domSnapshot: document.documentElement.outerHTML,
+    contentHtml: parsed?.content || null,
     sourceType: 'browser',
   };
 }
