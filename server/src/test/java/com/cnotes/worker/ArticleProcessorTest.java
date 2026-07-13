@@ -63,5 +63,6 @@ class ArticleProcessorTest {
         assertThat(got.getContent()).isEqualTo(fetched);
         assertThat(got.getExtractMethod()).isEqualTo("server-fetch");
         assertThat(got.getTitle()).isEqualTo("抓到的标题");   // 标题回填
+        assertThat(got.getHtmlObjectKey()).isNotBlank();   // server-fetch 富 HTML 已落盘
     }
 }
