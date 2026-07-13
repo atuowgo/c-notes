@@ -125,6 +125,30 @@ button { font-family: inherit; cursor: pointer; }
 .r-body { font-size: 16.5px; line-height: 1.85; color: #33302a; margin-top: 26px; white-space: pre-wrap; }
 .r-body p { margin: 0 0 19px; }
 
+/* 沉浸式阅读主题:富 HTML 正文排版(限宽单栏、图片自适应、代码块可横向滚动) */
+.reader-content { max-width: 720px; margin: 26px auto 0; line-height: 1.8; font-size: 17px; color: var(--ink); white-space: normal; }
+.reader-content h1, .reader-content h2, .reader-content h3 { line-height: 1.35; margin: 1.6em 0 .6em; font-weight: 700; color: var(--ink); }
+.reader-content p { margin: 1em 0; }
+.reader-content img { max-width: 100%; height: auto; display: block; margin: 1em auto; border-radius: 6px; }
+.reader-content figure { margin: 1em 0; }
+.reader-content figcaption { font-size: 14px; color: var(--ink-faint); text-align: center; margin-top: .4em; }
+.reader-content blockquote { margin: 1em 0; padding: .4em 1em; border-left: 3px solid var(--line); color: var(--ink-soft); }
+.reader-content pre { overflow-x: auto; padding: 1em; border-radius: 6px; background: #f3efe7; }
+.reader-content code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.reader-content ul, .reader-content ol { padding-left: 1.4em; margin: 1em 0; }
+.reader-content a { color: var(--gold); }
+
+/* 降级提示(未能提取版式,回退纯文本) */
+.degrade-tip { font-size: 14px; color: var(--ink-faint); padding: .6em .8em; background: #f3efe7; border-radius: 6px; margin-bottom: 1em; }
+
+/* 阅读主题暗色适配(项目目前无全局暗色模式,此处按系统色彩方案对阅读正文局部适配) */
+@media (prefers-color-scheme: dark) {
+  .reader-content pre { background: #1e1e1e; }
+  .reader-content blockquote { border-left-color: #3a3a3a; }
+  .degrade-tip { background: #23262b; }
+  mark.hl { background: linear-gradient(180deg, transparent 55%, #6b5b00 55%); }
+}
+
 /* 收藏弹窗 */
 .modal {
   position: fixed; inset: 0; z-index: 80; background: rgba(40, 33, 22, .32);
