@@ -24,6 +24,10 @@ desktop.ini
 *.pem
 *.key
 secrets.*
+id_rsa*
+id_ed25519*
+id_ecdsa*
+id_dsa*
 
 # ---- Logs / temp ----
 *.log
@@ -36,6 +40,9 @@ temp/
 # ---- Local runtime state (vector store, nginx pid/temp, etc.) ----
 .data/
 .nginx/
+
+# ---- Local release packaging output (built by ops/scripts/package.sh) ----
+release/
 
 # ---- Playwright e2e 产物(报告/trace/截图,不入库) ----
 test-results/
@@ -53,6 +60,7 @@ __pycache__/
 .venv/
 venv/
 target/
+server/bin/
 
 # ---- Claude / tooling local state ----
 .claude/settings.local.json
