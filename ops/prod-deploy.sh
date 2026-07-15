@@ -17,7 +17,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PROD_HOST="${PROD_HOST:-}"
 PROD_DIR="${PROD_DIR:-/opt/cnotes}"
 WEB_DIR="${WEB_DIR:-/var/www/cnotes/dist}"
-JAR="$ROOT/server/build/libs/cnotes-0.0.1-SNAPSHOT.jar"
+JAR="$ROOT/server/build/libs/cnotes.jar"
 DIST="$ROOT/frontend/apps/web/dist"
 
 step(){ printf '\n\033[1;36m== %s ==\033[0m\n' "$*"; }

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 日志落盘:LOG_PATH(默认 ./logs,生产由 systemd EnvironmentFile 的 LOG_PATH 指定绝对路径)。
+     按天 + 100MB 双触发滚动,gzip 压缩历史文件,保留最近 30 个;ERROR 级另落一份独立文件便于排障。
+     控制台输出保留:systemd 仍会把它接管进 journald(journalctl -u cnotes 可继续用)。 -->
+<Configuration status="WARN" monitorInterval="30">
+    <Properties>
+        <!-- 内部属性名故意不叫 LOG_PATH(与下面 env:LOG_PATH 同名会触发 log4j2 属性自引用死循环),
+             读的仍是环境变量 LOG_PATH,只是内部引用名换成 logPath 避免撞名。 -->
+        <Property name="logPath">${env:LOG_PATH:-./logs}</Property>
+        <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n%throwable</Property>
+    </Properties>
+
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+        </Console>
+
+        <RollingFile name="FileAppender"
+                     fileName="${logPath}/cnotes.log"
+                     filePattern="${logPath}/cnotes-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="100MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+
+        <RollingFile name="ErrorFileAppender"
+                     fileName="${logPath}/cnotes-error.log"
+                     filePattern="${logPath}/cnotes-error-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Filters>
+                <ThresholdFilter level="ERROR" onMatch="ACCEPT" onMismatch="DENY"/>
+            </Filters>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="100MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+    </Appenders>
+
+    <Loggers>
+        <Logger name="com.cnotes" level="INFO" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileAppender"/>
+            <AppenderRef ref="ErrorFileAppender"/>
+        </Logger>
+        <Root level="INFO">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileAppender"/>
+            <AppenderRef ref="ErrorFileAppender"/>
+        </Root>
+    </Loggers>
+</Configuration>

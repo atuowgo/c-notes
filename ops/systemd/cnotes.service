@@ -1,0 +1,17 @@
+[Unit]
+Description=cnotes backend (Spring Boot)
+After=network.target mariadb.service
+
+[Service]
+Type=simple
+WorkingDirectory=/root/service/cnotes
+EnvironmentFile=/root/service/cnotes/.env
+ExecStart=/usr/bin/java -jar /root/service/cnotes/cnotes.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

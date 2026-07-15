@@ -18,7 +18,17 @@ ext {
     set('mybatisPlusVersion', '3.5.16')
 }
 
+// 全局排除默认的 Logback(spring-boot-starter-logging),换用 Log4j2(见下方 starter-log4j2 +
+// log4j2.xml)。官方推荐的 Gradle 切换方式:所有 starter 都传递依赖 starter-logging,必须在
+// configurations 级别统一排除,单个 dependency 上排除不够(其他 starter 仍会带进 logback)。
+configurations {
+    all {
+        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+    }
+}
+
 dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-log4j2'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-security'
@@ -52,3 +62,8 @@ dependencyManagement {
 }
 
 tasks.named('test') { useJUnitPlatform() }
+
+// 固定产物文件名(不随版本号变化),部署脚本/文档按此名引用,避免版本号漂移导致路径失配。
+tasks.named('bootJar') {
+    archiveFileName = 'cnotes.jar'
+}

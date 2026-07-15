@@ -14,10 +14,16 @@ pnpm -C frontend install && pnpm -C frontend -r build
 ```
 
 产物:
-- 后端可执行 jar:`server/build/libs/cnotes-0.0.1-SNAPSHOT.jar`(Spring Boot fat jar,含内嵌 Tomcat)
+- 后端可执行 jar:`server/build/libs/cnotes.jar`(Spring Boot fat jar,含内嵌 Tomcat;文件名已在 `build.gradle` 固定,不随版本号变化)
 - 前端静态:`frontend/apps/web/dist/`(index.html + assets)
 
 > 也可在生产机上 `git pull && make build` 就地构建(需生产机有 JDK21 + pnpm)。
+>
+> **另一种部署方式(离线上传包)**:若生产机不便让本机 SSH 直连(如本文档 §1-§9 的 push 流程),
+> 可用 `ops/scripts/package.sh` 在本地编译并打包成一个自包含的 tar.gz(含 jar、dist、SQL 建库脚本、
+> systemd 单元、nginx 配置、install.sh/service.sh),手工上传解压后 `sudo ./scripts/install.sh` 一键接线。
+> 详见 `ops/README-DEPLOY.md`。数据库为 MariaDB(而非 MySQL)时同样适用 —— 迁移 SQL 与建库脚本均为
+> 可移植标准语法,已验证兼容 MariaDB 11。
 
 ## 2. 生产机前置
 
